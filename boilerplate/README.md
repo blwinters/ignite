@@ -1,77 +1,108 @@
-# Welcome to your new ignited app!
+# Your React Native app
 
-> The latest and greatest boilerplate for Infinite Red opinions
+This project uses Expo and TypeScript. See [project guidance](AGENTS.md) for the
+directory layout, generated-file boundaries, and environment safety, and
+[Optional modules](docs/optional-modules.md) for integration availability.
 
-This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+## Setup
 
-- [Quick start documentation](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/Boilerplate.md)
-- [Full documentation](https://github.com/infinitered/ignite/blob/master/docs/README.md)
+Use Node.js 20 or newer. The default package manager is Yarn 4.9.1, pinned in
+`package.json` and the project's local Yarn release. Enable Corepack before using
+Yarn; if Corepack is missing, install it with `npm install --global corepack`.
 
-## Getting Started
+```bash
+corepack enable
+yarn --version
+```
+
+For a Yarn project, verify the version is 4.9.1. If another package manager was
+selected during generation, use that manager instead. Install dependencies and
+start the development server from the project directory:
 
 ```bash
 pnpm run
 pnpm run start
 ```
 
-To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
+The server expects a development client. Build and install one for your target
+simulator or device before opening the app. `ios` and `android` scripts build
+locally through Expo; the `build:*` scripts use EAS local builds and require the
+corresponding native toolchain and EAS setup.
+
+## Navigation and native generation
+
+Expo Router is the default: file-based routes live in `src/app/`, with shared
+components, services, and configuration elsewhere in `src/`. Generate a project
+with `--navigation=react-navigation` to use `app/navigators/` and `app/screens/`
+instead. Demo content is removed by default; `--remove-demo=false` is supported
+with React Navigation.
+
+The default workflow uses Continuous Native Generation (CNG). Expo generates
+`ios/` and `android/` from app configuration and config plugins, and these native
+directories are ignored by Git. Make persistent native changes through config
+plugins. `prebuild:clean` replaces native directories, so review manual edits
+before running it. The optional `--workflow=manual` choice maintains native
+directories in version control instead.
+
+## Build variants and EAS linking
+
+`APP_VARIANT` selects development, preview, or production configuration. The
+development variant adds `(Dev)` to the name and `.dev` to the identifiers;
+preview adds `(Preview)` and `.preview`; production uses the base name and
+identifiers. Missing or unrecognized `APP_VARIANT` defaults to production;
+the EAS profiles set it explicitly.
+
+| EAS profile           | Variant     | Purpose                             |
+| --------------------- | ----------- | ----------------------------------- |
+| development-simulator | development | Development client; iOS simulator   |
+| development-device    | development | Development client; physical device |
+| preview               | preview     | Internal distribution; Android APK  |
+| production            | production  | Release build                       |
+
+Profiles select matching EAS environments and channels. Android uses the same
+development profiles for emulator or device builds; the simulator setting is
+iOS-specific. Build scripts include:
 
 ```bash
-pnpm run build:ios:sim # build for ios simulator
-pnpm run build:ios:device # build for ios device
-pnpm run build:ios:prod # build for ios device
+pnpm run build:ios:sim
+pnpm run build:ios:device
+pnpm run build:ios:preview
+pnpm run build:ios:prod
 ```
 
-### `./assets`
+Equivalent `build:android:*` scripts are available. These scripts use `--local`;
+use `eas build --profile <profile> --platform <ios|android>` for a hosted build.
 
-This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
+Create or select your own EAS project, then provide its project UUID as
+`EAS_PROJECT_ID` locally or in the relevant EAS environment. No account or
+project identifier is supplied by this starter. With this value set,
+`app.config.ts` adds the project link, update URL, and an app-version runtime
+policy. Linking does not enable working over-the-air updates: `expo-updates` is
+not installed by default. Add and configure that native dependency, rebuild the
+client, and verify update delivery and runtime compatibility before using OTA.
+An EAS channel or update URL alone is not proof of update support.
 
-```tree
-assets
-├── icons
-└── images
+## Local validation
+
+With the default Yarn setup:
+
+```bash
+yarn lint
+yarn typecheck
+yarn test --runInBand
+yarn check
 ```
 
-**icons**
-This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
+`lint` is read-only; `yarn lint:fix` applies fixes. `check` runs lint, TypeScript,
+tests, and dependency-boundary checks. For another package manager, use its
+`run` equivalent; npm forwards test arguments with `npm run test -- --runInBand`.
+The generated pull-request workflow runs the same checks. Commit the selected
+manager's lockfile after installing dependencies so CI can use a frozen install.
+Validate native behavior on a simulator or device separately.
 
-Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/app/components/Icon.md).
+## Optional integrations
 
-**images**
-This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
-
-Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
-
-How to use your `icon` or `image` assets:
-
-```typescript
-import { Image } from 'react-native';
-
-const MyComponent = () => {
-  return (
-    <Image source={require('assets/images/my_image.png')} />
-  );
-};
-```
-
-## Running Maestro end-to-end tests
-
-Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe.
-
-## Next Steps
-
-### Ignite Cookbook
-
-[Ignite Cookbook](https://ignitecookbook.com/) is an easy way for developers to browse and share code snippets (or “recipes”) that actually work.
-
-### Upgrade Ignite boilerplate
-
-Read our [Upgrade Guide](https://ignitecookbook.com/docs/recipes/UpdatingIgnite) to learn how to upgrade your Ignite project.
-
-## Community
-
-⭐️ Help us out by [starring on GitHub](https://github.com/infinitered/ignite), filing bug reports in [issues](https://github.com/infinitered/ignite/issues) or [ask questions](https://github.com/infinitered/ignite/discussions).
-
-💬 Join us on [Slack](https://join.slack.com/t/infiniteredcommunity/shared_invite/zt-1f137np4h-zPTq_CbaRFUOR_glUFs2UA) to discuss.
-
-📰 Make our Editor-in-chief happy by [reading the React Native Newsletter](https://reactnativenewsletter.com/).
+[Optional modules](docs/optional-modules.md) lists Supabase as available and the
+other integrations as planned. No backend or identity provider is required by
+the base app. Keep local environment values out of Git; client-visible
+`EXPO_PUBLIC_*` values must contain only public configuration, never secrets.

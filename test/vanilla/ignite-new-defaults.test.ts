@@ -228,6 +228,83 @@ describe("ignite new defaults", () => {
     expect(filesystem.read(`${appPath}/.gitignore`)).toContain("/ios")
   })
 
+  it.each(["expo-router", "react-navigation"])(
+    "ships portable project guidance with %s",
+    async (navigation) => {
+      await spawnIgniteAndPrintIfFail(
+        `new PortableGuidance --yes --navigation=${navigation} --install-deps=false --git=false`,
+        { pre: `cd ${tempDir}`, outputFileName: `ignite-new-guidance-${navigation}.txt` },
+      )
+      const appPath = filesystem.path(tempDir, "PortableGuidance")
+      const documentPaths = ["AGENTS.md", "README.md", "docs/optional-modules.md"]
+      for (const documentPath of documentPaths) {
+        expect(filesystem.exists(filesystem.path(appPath, documentPath))).toBe("file")
+      }
+      const [agents, readme, catalog] = documentPaths.map((documentPath) =>
+        filesystem.read(filesystem.path(appPath, documentPath)),
+      )
+      for (const document of [agents, readme, catalog]) {
+        expect(document).not.toMatch(/Revue|Cadence|Gas City|Cincy|T3|Riverfront|Infinite Red/i)
+      }
+      expect(agents.split("\n").length).toBeLessThanOrEqual(70)
+      for (const command of ["lint", "typecheck", "test", "check"]) {
+        expect(agents).toContain(`yarn ${command}`)
+        expect(readme).toContain(`yarn ${command}`)
+      }
+      for (const boundary of [
+        "src/app",
+        "app/navigators",
+        "assets/",
+        "test/",
+        "ignite/templates/",
+        ".env",
+        "ios/",
+        "android/",
+      ]) {
+        expect(agents).toContain(boundary)
+      }
+      expect(agents).toMatch(/evidence/i)
+      expect(readme).toContain("Corepack")
+      expect(readme).toContain("4.9.1")
+      expect(readme).toContain("yarn install")
+      expect(readme).toContain("--navigation=react-navigation")
+      expect(readme).toContain("Continuous Native Generation")
+      for (const profile of [
+        "development-simulator",
+        "development-device",
+        "preview",
+        "production",
+      ]) {
+        expect(readme).toContain(profile)
+      }
+      expect(readme).toContain("EAS_PROJECT_ID")
+      expect(readme).toMatch(/expo-updates/)
+      expect(readme).toMatch(/does not enable.*over.the.air/i)
+      expect(readme).toContain("[Optional modules](docs/optional-modules.md)")
+      const moduleRows = catalog
+        .split("\n")
+        .filter((line) => line.startsWith("|"))
+        .map((line) =>
+          line
+            .split("|")
+            .slice(1, -1)
+            .map((cell) => cell.trim()),
+        )
+      for (const [module, status] of [
+        ["Supabase", "available"],
+        ["Firebase", "planned"],
+        ["Clerk", "planned"],
+        ["WatermelonDB", "planned"],
+        ["RevenueCat / purchases", "planned"],
+      ]) {
+        expect(moduleRows.find((row) => row[0] === module)?.[1]).toBe(status)
+      }
+      expect(catalog).toMatch(/row.level security/i)
+      expect(catalog).toMatch(/native.*build|build.*native/i)
+      expect(catalog).toMatch(/not.*installable/i)
+    },
+  )
+
   it.each([
     ["yarn", "yarn install --immutable", "yarn check"],
     ["pnpm", "pnpm install --frozen-lockfile", "pnpm run check"],
