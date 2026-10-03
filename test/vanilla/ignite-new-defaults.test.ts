@@ -4,7 +4,7 @@ import * as tempy from "tempy"
 import { parse } from "yaml"
 
 import { packager, PackagerName } from "../../src/tools/packager"
-import { spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
+import { spawnAndLog, spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
 
 const newCommand = require("../../src/commands/new")
 
@@ -273,6 +273,102 @@ describe("ignite new defaults", () => {
       `${prefix} lint && ${prefix} typecheck && ${prefix} test${testArgs} && ${prefix} depcruise`,
     )
   })
+
+  it.each(["expo-router", "react-navigation"])(
+    "resolves generic EAS variants with %s",
+    async (navigation) => {
+      await spawnIgniteAndPrintIfFail(
+        `new VariantApp --yes --navigation=${navigation} --bundle=org.example.variantapp --install-deps=false --git=false`,
+        { pre: `cd ${tempDir}`, outputFileName: `ignite-new-variants-${navigation}.txt` },
+      )
+      const appPath = filesystem.path(tempDir, "VariantApp")
+      const { build } = filesystem.read(`${appPath}/eas.json`, "json")
+      expect(Object.keys(build).sort()).toEqual([
+        "development-device",
+        "development-simulator",
+        "preview",
+        "production",
+      ])
+      for (const [profile, variant] of [
+        ["development-simulator", "development"],
+        ["development-device", "development"],
+        ["preview", "preview"],
+        ["production", "production"],
+      ]) {
+        expect(build[profile]).toMatchObject({
+          environment: variant,
+          channel: variant,
+          env: { APP_VARIANT: variant },
+        })
+      }
+      expect(build["development-simulator"]).toMatchObject({
+        developmentClient: true,
+        distribution: "internal",
+        ios: { simulator: true },
+      })
+      expect(build["development-device"]).toMatchObject({
+        developmentClient: true,
+        distribution: "internal",
+        ios: { simulator: false },
+      })
+      expect(build.preview).toMatchObject({
+        distribution: "internal",
+        android: { buildType: "apk" },
+      })
+      const { scripts } = filesystem.read(`${appPath}/package.json`, "json")
+      for (const platform of ["ios", "android"]) {
+        expect(scripts[`build:${platform}:sim`]).toBe(
+          `eas build --profile development-simulator --platform ${platform} --local`,
+        )
+        expect(scripts[`build:${platform}:device`]).toBe(
+          `eas build --profile development-device --platform ${platform} --local`,
+        )
+      }
+
+      await system.run(`cd ${appPath} && yarn install --mode=skip-build`)
+      const typecheck = await spawnAndLog(
+        "yarn tsc --noEmit --strict --skipLibCheck --module commonjs --target es2022 app.config.ts",
+        {
+          pre: `cd ${appPath}`,
+          outputFileName: `ignite-new-variants-typecheck-${navigation}.txt`,
+        },
+      )
+      if (typecheck.exitCode !== 0) console.error(typecheck.output)
+      expect(typecheck.exitCode).toBe(0)
+      for (const [variant, name, identifier] of [
+        ["development", "VariantApp (Dev)", "org.example.variantapp.dev"],
+        ["preview", "VariantApp (Preview)", "org.example.variantapp.preview"],
+        ["production", "VariantApp", "org.example.variantapp"],
+      ]) {
+        const config = JSON.parse(
+          await system.run(
+            `cd ${appPath} && env -u EAS_PROJECT_ID APP_VARIANT=${variant} EXPO_NO_DOTENV=1 yarn expo config --json`,
+          ),
+        )
+        expect(config.name).toBe(name)
+        expect(config.ios.bundleIdentifier).toBe(identifier)
+        expect(config.android.package).toBe(identifier)
+        expect(config.ios.privacyManifests.NSPrivacyAccessedAPITypes).toHaveLength(1)
+        expect(config.extra.ignite.version).toBeDefined()
+        expect(config.extra.eas).toBeUndefined()
+        expect(config.updates.url).toBeUndefined()
+        expect(config.runtimeVersion).toBeUndefined()
+      }
+      const projectId = "00000000-0000-4000-8000-000000000000"
+      const config = JSON.parse(
+        await system.run(
+          `cd ${appPath} && APP_VARIANT=preview EAS_PROJECT_ID=${projectId} EXPO_NO_DOTENV=1 yarn expo config --json`,
+        ),
+      )
+      expect(config.extra.eas.projectId).toBe(projectId)
+      expect(config.extra.ignite.version).toBeDefined()
+      expect(config.updates).toMatchObject({
+        url: "https://u.expo.dev/00000000-0000-4000-8000-000000000000",
+        fallbackToCacheTimeout: 0,
+      })
+      expect(config.runtimeVersion).toEqual({ policy: "appVersion" })
+    },
+  )
 
   it("honors --navigation=react-navigation and an explicit demo override", async () => {
     const result = await spawnIgniteAndPrintIfFail(

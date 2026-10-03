@@ -342,6 +342,7 @@ export function updateExpoRouterSrcDir(toolbox: GluegunToolbox) {
   const TARGET_DIR = filesystem.path(process.cwd())
   const expoRouterFilesToFix = [
     "tsconfig.json",
+    "app.config.ts",
     // has its own tsconfig, needs updating separately
     "test/i18n.test.ts",
     "test/setup.ts",
