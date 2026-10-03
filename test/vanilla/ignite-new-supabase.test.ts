@@ -25,7 +25,7 @@ describe("Supabase fork CI", () => {
     expect(fixtures.steps).toContainEqual({
       "name": "Install fixture dependencies",
       "working-directory": "${{ env.FIXTURE_PATH }}",
-      "run": "yarn install --mode=skip-build",
+      "run": "yarn install --mode=skip-build --no-immutable",
     })
     expect(fixtures.steps).toContainEqual({
       "name": "Apply initial generation formatting",

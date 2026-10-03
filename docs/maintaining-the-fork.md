@@ -120,6 +120,7 @@ pnpm format
 pnpm format:check
 pnpm lint
 pnpm typecheck
+pnpm compile
 pnpm depcruise
 pnpm test --runInBand --watchman=false
 git diff --check
@@ -144,10 +145,15 @@ fixture after preserving its logs. Substitute `--navigation=react-navigation` or
 ```sh
 node /path/to/ignite/bin/ignite new FixtureApp --yes --install-deps=false --git=false --use-cache=false
 cd FixtureApp
-yarn install --mode=skip-build
+yarn install --mode=skip-build --no-immutable
 yarn lint:fix
 yarn check
 ```
+
+Fresh dependency-free generation leaves an empty lockfile. `--no-immutable`
+allows only this first install to resolve it, including under `CI=true`; subsequent
+installs should use `yarn install --immutable`. No global immutable-install setting
+is disabled, and the project's validation commands remain strict.
 
 The initial fix is the generator's ordinary formatting phase, applied after
 dependencies are available. `check` itself remains nonmutating. This fixture

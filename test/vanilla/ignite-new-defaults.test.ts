@@ -22,6 +22,7 @@ describe("fork CI", () => {
       "pnpm format:check",
       "pnpm lint",
       "pnpm typecheck",
+      "pnpm compile",
       "pnpm test --runInBand --watchman=false",
     ]) {
       expect(commands).toContain(command)

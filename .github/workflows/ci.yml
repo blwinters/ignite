@@ -41,6 +41,8 @@ jobs:
         run: pnpm lint
       - name: Typecheck CLI
         run: pnpm typecheck
+      - name: Compile CLI
+        run: pnpm compile
       - name: Check CLI dependency boundaries
         run: pnpm depcruise
       - name: Run full unit and integration suite
@@ -86,7 +88,9 @@ jobs:
           echo "FIXTURE_PATH=$fixture_root/FixtureApp" >> "$GITHUB_ENV"
       - name: Install fixture dependencies
         working-directory: ${{ env.FIXTURE_PATH }}
-        run: yarn install --mode=skip-build
+        # Fresh generated fixtures have an empty lockfile; allow this bootstrap
+        # to resolve it without disabling strict validation globally.
+        run: yarn install --mode=skip-build --no-immutable
       - name: Apply initial generation formatting
         working-directory: ${{ env.FIXTURE_PATH }}
         run: yarn lint:fix
