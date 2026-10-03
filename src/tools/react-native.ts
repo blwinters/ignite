@@ -36,7 +36,7 @@ export async function copyBoilerplate(toolbox: GluegunToolbox, options: CopyBoil
   // just to make it faster, y'know? Don't want to copy unnecessary stuff
   const filesAndFolders = children(options.boilerplatePath, true)
   const copyTargets = filesAndFolders.filter(
-    (file) => !options.excluded.find((exclusion) => file.includes(exclusion)),
+    (file) => file !== "modules" && !options.excluded.find((exclusion) => file.includes(exclusion)),
   )
 
   const { overwrite } = options

@@ -3,6 +3,12 @@ import { EOL } from "os"
 import { cache } from "../tools/cache"
 import { demoDependenciesToRemove, findDemoPatches } from "../tools/demo"
 import { boolFlag } from "../tools/flag"
+import {
+  addOptionalModuleDependencies,
+  applyOptionalModules,
+  availableOptionalModules,
+  parseOptionalModules,
+} from "../tools/modules"
 import { packager, PackagerName } from "../tools/packager"
 import {
   p,
@@ -90,6 +96,8 @@ export interface Options {
    * @default expo-router
    */
   navigation?: Navigation
+  /** Comma-separated opt-in modules. No modules are enabled by default. */
+  modules?: string
   /**
    * The target directory where the project will be created.
    *
@@ -492,6 +500,25 @@ module.exports = {
     }
     // #endregion
 
+    let selectedModules = []
+    try {
+      selectedModules = parseOptionalModules(options.modules)
+    } catch (error) {
+      p(yellow(`Error: ${error.message}`))
+      process.exit(1)
+    }
+    if (options.modules === undefined && !yname) {
+      const response = await prompt.ask<{ modules: string[] }>(() => ({
+        type: "multiselect",
+        name: "modules",
+        message: "Which optional modules do you want to install?",
+        choices: availableOptionalModules,
+        initial: [],
+        prefix,
+      }))
+      selectedModules = parseOptionalModules(response.modules.join(","))
+    }
+
     // #region Debug
     // start tracking performance
     const perfStart = new Date().getTime()
@@ -647,6 +674,7 @@ module.exports = {
         })
         .join(" && ")
       write("./package.json", packageJson)
+      addOptionalModuleDependencies(toolbox, targetPath, selectedModules)
       // #endregion
 
       // #region Run Packager Install
@@ -676,7 +704,10 @@ module.exports = {
       }
 
       // check if there is a dependency cache using a hash of the package.json
-      const boilerplatePackageJsonHash = cache.hash(read(path(boilerplatePath, "package.json")))
+      const dependencyManifest = read(
+        path(selectedModules.length > 0 ? targetPath : boilerplatePath, "package.json"),
+      )
+      const boilerplatePackageJsonHash = cache.hash(dependencyManifest)
       const cachePath = path(cache.rootdir(), boilerplatePackageJsonHash, packagerName)
       const cacheExists = exists(cachePath) === "dir"
 
@@ -845,6 +876,7 @@ module.exports = {
       // #endregion
 
       // #region Run Format
+      await applyOptionalModules(toolbox, targetPath, selectedModules)
       const formattingMessage = `Cleaning up`
       startSpinner(formattingMessage)
       if (installDeps === true) {
@@ -945,6 +977,7 @@ module.exports = {
           targetPath,
           removeDemo,
           navigation,
+          modules: selectedModules.join(",") || undefined,
           experimental:
             experimentalFlags.filter((flag) => flag !== "expo-router").join(",") || undefined,
           workflow,
