@@ -113,17 +113,17 @@ describe("ignite new", () => {
         post: `cd ${originalDir}`,
       }
 
-      // #region Assert Typescript Compiles With No Errors
-      let resultTS: string
+      // #region Assert Generated Checks Pass Without Changing Files
       try {
-        resultTS = await run(`bun run check`, runOpts)
-      } catch (e) {
-        resultTS = e.stdout
-        console.error(resultTS) // This will only show if you run in --verbose mode.
+        const check = await spawnAndLog("bun run check", {
+          ...runOpts,
+          outputFileName: "ignite-new-checks-bun.txt",
+        })
+        if (check.exitCode !== 0) console.error(check.output)
+        expect(check.exitCode).toBe(0)
       } finally {
         expect(await run("git diff --exit-code", runOpts)).toBe("")
       }
-      expect(resultTS).not.toContain("error")
       // #endregion
 
       // #region Assert Generators Work
