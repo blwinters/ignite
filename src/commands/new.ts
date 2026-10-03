@@ -38,6 +38,7 @@ import type { ValidationsExports } from "../tools/validations"
 import { GluegunToolbox } from "../types"
 
 type Workflow = "cng" | "manual"
+type Navigation = "expo-router" | "react-navigation"
 
 export interface Options {
   /**
@@ -83,6 +84,11 @@ export interface Options {
    */
   packager?: "npm" | "yarn" | "pnpm" | "bun"
   /**
+   * Navigation library used by the generated project
+   * @default expo-router
+   */
+  navigation?: Navigation
+  /**
    * The target directory where the project will be created.
    *
    * Input Source: `prompt.ask` | `parameter.option`
@@ -93,7 +99,7 @@ export interface Options {
    * Whether or not to remove the boilerplate demo code
    *
    * Input Source: `prompt.ask` | `parameter.option`
-   * @default false
+   * @default true
    */
   removeDemo?: boolean
   /**
@@ -330,12 +336,9 @@ module.exports = {
     // #endregion
 
     // #region Packager
-    // check if a packager is provided, or detect one
-    // we pass in expo because we can't use pnpm if we're using expo
-
     const availablePackagers = packager.availablePackagers()
     log(`availablePackagers: ${availablePackagers}`)
-    const defaultPackagerName = availablePackagers.includes("pnpm") ? "pnpm" : "npm"
+    const defaultPackagerName = "yarn"
     let packagerName = getDefault(options.packager) ? defaultPackagerName : options.packager
 
     const validatePackagerName = (input: unknown): input is PackagerName =>
@@ -370,7 +373,7 @@ module.exports = {
       const packagerNameResponse = await prompt.ask<{ packagerName: PackagerName }>(() => ({
         type: "select",
         name: "packagerName",
-        message: "Which package manager do you want to use? (Note: we recommend pnpm)",
+        message: "Which package manager do you want to use? (Recommended: Yarn)",
         choices: availablePackagers,
         initial,
         prefix,
@@ -406,79 +409,78 @@ module.exports = {
 
     // #region Experimental Features parsing
     let expoVersion
-    let expoRouter
     const experimentalFlags = options.experimental?.split(",") ?? []
     log(`experimentalFlags: ${experimentalFlags}`)
-    let removeDemo = boolFlag(options.removeDemo)
 
     experimentalFlags.forEach((flag) => {
-      if (flag.indexOf("expo-") > -1) {
-        if (flag !== "expo-router") {
-          expoVersion = flag.substring(5)
-        } else {
-          // user wants to convert to expo-router
-          // force demo code removal for easier conversion
-          // maybe one day convert the demo app
-          expoRouter = true
-
-          if (!removeDemo) {
-            p()
-            p(
-              yellow(
-                `Enabling Expo Router will currently remove the demo application. To continue with the demo app, check out the recipe with full instructions: https://ignitecookbook.com/docs/recipes/ExpoRouter`,
-              ),
-            )
-            p(yellow(`Setting --remove-demo=true`))
-            removeDemo = true
-          }
-        }
+      if (flag.startsWith("expo-") && flag !== "expo-router") {
+        expoVersion = flag.substring(5)
       }
     })
     // #endregion
 
-    // #region Prompt to enable experimental features
-
-    // Expo Router
-    const defaultExpoRouter = false
-    let experimentalExpoRouter = getDefault(expoRouter) ? defaultExpoRouter : boolFlag(expoRouter)
-    if (experimentalExpoRouter === undefined) {
-      const expoRouterResponse = await prompt.ask<{ experimentalExpoRouter: boolean }>(() => ({
-        type: "confirm",
-        name: "experimentalExpoRouter",
-        message:
-          "[Experimental] Expo Router for navigation? (This will remove the demo application)",
-        initial: defaultExpoRouter,
-        format: prettyPrompt.format.boolean,
+    // #region Navigation
+    const defaultNavigation: Navigation = "expo-router"
+    if (
+      options.navigation !== undefined &&
+      !["expo-router", "react-navigation"].includes(options.navigation)
+    ) {
+      p(
+        yellow(
+          `Error: Invalid navigation: "${options.navigation}". Valid choices are expo-router, react-navigation.`,
+        ),
+      )
+      process.exit(1)
+    }
+    if (options.navigation === "react-navigation" && experimentalFlags.includes("expo-router")) {
+      p(
+        yellow(
+          "Error: Conflicting navigation choices: --navigation=react-navigation and --experimental=expo-router.",
+        ),
+      )
+      process.exit(1)
+    }
+    const navigationOption =
+      options.navigation ?? (experimentalFlags.includes("expo-router") ? "expo-router" : undefined)
+    let navigation = getDefault(navigationOption) ? defaultNavigation : navigationOption
+    if (navigation === undefined) {
+      const navigationResponse = await prompt.ask<{ navigation: Navigation }>(() => ({
+        type: "select",
+        name: "navigation",
+        message: "Which navigation library do you want to use?",
+        choices: ["expo-router", "react-navigation"],
+        initial: defaultNavigation,
         prefix,
       }))
-      experimentalExpoRouter = expoRouterResponse.experimentalExpoRouter
-
-      // update experimental flags if needed for buildCliCommand output
-      if (experimentalExpoRouter && !experimentalFlags.includes("expo-router")) {
-        experimentalFlags.push("expo-router")
-      }
+      navigation = navigationResponse.navigation
     }
+    const expoRouter = navigation === "expo-router"
+    // #endregion
 
     // #region Prompt to Remove Demo code
-    const defaultRemoveDemo = experimentalExpoRouter
-    if (defaultRemoveDemo) {
-      p(yellow(`Warning: the demo application will be removed.`))
-    }
-    removeDemo = getDefault(options.removeDemo) ? defaultRemoveDemo : boolFlag(options.removeDemo)
+    const defaultRemoveDemo = true
+    let removeDemo = getDefault(options.removeDemo)
+      ? defaultRemoveDemo
+      : boolFlag(options.removeDemo)
 
-    if (!defaultRemoveDemo && removeDemo === undefined) {
+    if (removeDemo === undefined) {
       const removeDemoResponse = await prompt.ask<{ removeDemo: boolean }>(() => ({
         type: "confirm",
         name: "removeDemo",
-        message:
-          "Remove demo code? We recommend leaving it in if it's your first time using Ignite",
+        message: "Remove demo code?",
         initial: defaultRemoveDemo,
         format: prettyPrompt.format.boolean,
         prefix,
       }))
       removeDemo = removeDemoResponse.removeDemo
-    } else {
-      removeDemo = defaultRemoveDemo
+    }
+    if (expoRouter && removeDemo === false) {
+      p(
+        yellow(
+          "Error: Ignite's Expo Router conversion requires demo removal. Use --navigation=react-navigation --remove-demo=false to retain the demo application.",
+        ),
+      )
+      process.exit(1)
     }
     // #endregion
 
@@ -587,7 +589,7 @@ module.exports = {
       const packageJsonParsed = JSON.parse(packageJsonRaw)
 
       // add in expo-router package
-      if (experimentalExpoRouter) {
+      if (expoRouter) {
         // find "expo-localization" line and append "expo-router" line after it
         packageJsonRaw = packageJsonRaw.replace(
           /"expo-localization": ".*",/g,
@@ -753,7 +755,7 @@ module.exports = {
         // Inject ignite version to app.json
         appJson.extra.ignite.version = igniteVersion
 
-        if (experimentalExpoRouter) {
+        if (expoRouter) {
           appJson.experiments.typedRoutes = true
           appJson.plugins.push("expo-router")
         }
@@ -795,7 +797,7 @@ module.exports = {
       // #endregion
 
       // #region Expo Router edits
-      if (experimentalExpoRouter) {
+      if (expoRouter) {
         const expoRouterMsg = " Recalibrating compass with Expo Router"
         startSpinner(expoRouterMsg)
 
@@ -931,7 +933,9 @@ module.exports = {
           packager: packagerName,
           targetPath,
           removeDemo,
-          experimental: experimentalFlags.length > 0 ? experimentalFlags.join(",") : undefined,
+          navigation,
+          experimental:
+            experimentalFlags.filter((flag) => flag !== "expo-router").join(",") || undefined,
           workflow,
           useCache,
           y: yname,

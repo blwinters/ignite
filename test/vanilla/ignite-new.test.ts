@@ -24,7 +24,7 @@ describe("ignite new", () => {
     })
   })
 
-  describe(`ignite new ${APP_NAME} --debug --packager=bun --yes`, () => {
+  describe(`ignite new ${APP_NAME} --debug --packager=bun --navigation=react-navigation --remove-demo=false --yes`, () => {
     let tempDir: string
     let result: string
     let appPath: string
@@ -32,11 +32,14 @@ describe("ignite new", () => {
     beforeAll(async () => {
       tempDir = tempy.directory({ prefix: "ignite-" })
 
-      result = await spawnIgniteAndPrintIfFail(`new ${APP_NAME} --debug --packager=bun --yes`, {
-        pre: `cd ${tempDir}`,
-        post: `cd ${originalDir}`,
-        outputFileName: "ignite-new-output-bun.txt",
-      })
+      result = await spawnIgniteAndPrintIfFail(
+        `new ${APP_NAME} --debug --packager=bun --navigation=react-navigation --remove-demo=false --yes`,
+        {
+          pre: `cd ${tempDir}`,
+          post: `cd ${originalDir}`,
+          outputFileName: "ignite-new-output-bun.txt",
+        },
+      )
 
       appPath = filesystem.path(tempDir, APP_NAME)
     })
@@ -294,7 +297,7 @@ describe("ignite new", () => {
       expect(result).toContain("Now get cooking! 🍽")
     })
 
-    it("should be able to use `generate` command and have pass output pass pnpm run test, pnpm run lint, and pnpm run compile scripts", async () => {
+    it("should pass test, lint, compile, and dependency checks with Yarn", async () => {
       // other common test operations
       const runOpts = {
         pre: `cd ${appPath}`,
@@ -303,10 +306,10 @@ describe("ignite new", () => {
 
       // #region Assert package.json Scripts Can Be Run
       // run the tests; if they fail, run will raise and this test will fail
-      await run(`pnpm run test`, runOpts)
-      await run(`pnpm run lint`, runOpts)
-      await run(`pnpm run compile`, runOpts)
-      await run(`pnpm run depcruise`, runOpts)
+      await run(`yarn test`, runOpts)
+      await run(`yarn lint`, runOpts)
+      await run(`yarn compile`, runOpts)
+      await run(`yarn depcruise`, runOpts)
       expect(await run("git diff HEAD --no-ext-diff", runOpts)).toBe("")
     })
     // #endregion
