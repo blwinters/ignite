@@ -379,6 +379,15 @@ module.exports = {
       packagerName = packagerNameResponse.packagerName
     }
 
+    if (packagerName === "yarn" && !system.which("corepack")) {
+      p(
+        yellow(
+          `Error: Yarn ${YARN_VERSION} requires Corepack. Install it with npm install --global corepack and retry, or select --packager=npm.`,
+        ),
+      )
+      process.exit(1)
+    }
+
     const packagerOptions = { packagerName }
 
     const isWindows = process.platform === "win32"
@@ -648,7 +657,10 @@ module.exports = {
         write(yarnrcPath, `${yarnrcContents ?? ""}${EOL}nodeLinker: node-modules${EOL}`)
         // Avoid inheriting a parent workspace while setting the pinned Yarn version.
         write(path(targetPath, "yarn.lock"), "")
-        await system.run(`yarn set version ${YARN_VERSION}`, { onProgress: log })
+        // Bootstrap without global Yarn, then keep later commands pinned even on Classic hosts.
+        await system.run(`corepack yarn@${YARN_VERSION} set version ${YARN_VERSION} --yarn-path`, {
+          onProgress: log,
+        })
       }
 
       // check if there is a dependency cache using a hash of the package.json

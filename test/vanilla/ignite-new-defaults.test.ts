@@ -99,7 +99,77 @@ describe("ignite new defaults", () => {
     expect(filesystem.exists(filesystem.path(tempDir, "UnavailableYarn"))).toBe(false)
   })
 
-  it.each(["1.22.22", "4.6.0"])(
+  it("bootstraps pinned Yarn despite an actual Classic global executable", async () => {
+    const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`
+    const classicPath = filesystem.path(tempDir, "classic")
+    await system.run(
+      `npm install --prefix ${shellQuote(classicPath)} --ignore-scripts --no-package-lock --no-audit --no-fund yarn@1.22.22`,
+    )
+    const binPath = filesystem.path(tempDir, "bin")
+    const yarnPath = filesystem.path(binPath, "yarn")
+    filesystem.dir(binPath)
+    filesystem.write(
+      yarnPath,
+      `#!/bin/sh\nunset COREPACK_ROOT SKIP_YARN_COREPACK_CHECK\nexec node ${shellQuote(filesystem.path(classicPath, "node_modules/yarn/bin/yarn.js"))} "$@"\n`,
+    )
+    chmodSync(yarnPath, 0o755)
+    const pre = `export PATH=${shellQuote(binPath)}:"$PATH" && cd ${shellQuote(tempDir)}`
+    expect(await system.run(`${pre} && yarn --version`)).toContain("1.22.22")
+
+    await spawnIgniteAndPrintIfFail("new ClassicYarn --yes --install-deps=false --git=false", {
+      pre,
+      outputFileName: "ignite-new-classic-yarn.txt",
+    })
+    const appPath = filesystem.path(tempDir, "ClassicYarn")
+    expect(filesystem.read(filesystem.path(appPath, "package.json"), "json").packageManager).toBe(
+      "yarn@4.9.1",
+    )
+    // Later generator commands and user commands must also bypass Classic's startup check.
+    expect(await system.run(`${pre} && cd ${shellQuote(appPath)} && yarn --version`)).toContain(
+      "4.9.1",
+    )
+  })
+
+  it("provides Corepack setup guidance before generating a Yarn project when Corepack is absent", async () => {
+    const actualWhich = system.which
+    jest
+      .spyOn(system, "which")
+      .mockImplementation((name) => (name === "corepack" ? undefined : actualWhich(name)))
+    const output = jest.spyOn(print, "info").mockImplementation(() => undefined)
+    const stopped = new Error("Unavailable Corepack")
+    let exitCode: number | undefined
+    jest.spyOn(process, "exit").mockImplementation((code) => {
+      exitCode = code
+      throw stopped
+    })
+    const targetPath = filesystem.path(tempDir, "MissingCorepack")
+    const toolbox = {
+      filesystem,
+      print,
+      strings,
+      system,
+      meta: {
+        get src() {
+          throw new Error("Generation started before Corepack validation")
+        },
+      },
+      parameters: {
+        first: "MissingCorepack",
+        options: { yes: true, targetPath, installDeps: false, git: false },
+        argv: ["new", "MissingCorepack", "--yes"],
+      },
+    } as unknown as GluegunToolbox
+
+    await expect(newCommand.run(toolbox)).rejects.toBe(stopped)
+    expect(exitCode).toBe(1)
+    const message = output.mock.calls.flat().join("\n")
+    expect(message).toContain("Yarn 4.9.1 requires Corepack")
+    expect(message).toContain("npm install --global corepack")
+    expect(message).toContain("--packager=npm")
+    expect(filesystem.exists(targetPath)).toBe(false)
+  })
+
+  it.each(["4.6.0"])(
     "pins generated Yarn to 4.9.1 when the host reports %s",
     async (hostVersion) => {
       const actualCorepack = system.which("corepack")
