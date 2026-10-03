@@ -162,11 +162,11 @@ and dependency boundaries. It does not establish simulator/device acceptance,
 native builds, authentication, or live service behavior. The normal integration
 suite separately exercises installed generation and native file generation.
 
-The current React Navigation baseline can report `TS2345` at
-`app/navigators/navigationUtilities.ts:71`: `getRootState()` may be undefined.
-Keep that result visible in both the normal suite and its named fixture job;
-record the failing command, source location, and upstream revision, and resolve
-it as an explicit compatibility change. Do not suppress it with ignored tests,
-weaker type checking, or `continue-on-error`. Disk exhaustion is an environment
+The fork handles a potentially undefined React Navigation `getRootState()` before
+traversing its routes. Without that guard, the upstream back handler both fails
+strict typechecking with `TS2345` and can crash if a ready navigator has no root
+state. Keep the alternate navigation path covered in the normal suite and its
+named fixture job. Do not suppress failures with ignored tests, weaker type
+checking, or `continue-on-error`. Disk exhaustion is an environment
 failure; rerun on a host with room for one dependency installation rather than
 claiming a fixture passed or deleting unrelated projects/shared caches.

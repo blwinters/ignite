@@ -4,7 +4,12 @@ import * as tempy from "tempy"
 import { parse } from "yaml"
 
 import { packager, PackagerName } from "../../src/tools/packager"
-import { spawnAndLog, spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
+import {
+  spawnAndLog,
+  spawnAndLogIgnite,
+  spawnIgniteAndPrintIfFail,
+  YARN_FIXTURE_INSTALL,
+} from "../_test-helpers"
 
 const newCommand = require("../../src/commands/new")
 
@@ -67,6 +72,27 @@ describe("ignite new defaults", () => {
   afterEach(() => {
     jest.restoreAllMocks()
     filesystem.remove(tempDir)
+  })
+
+  it("bootstraps an empty Yarn fixture lockfile under CI", async () => {
+    filesystem.write(filesystem.path(tempDir, "package.json"), {
+      name: "ci-bootstrap-fixture",
+      private: true,
+      packageManager: "yarn@4.9.1",
+    })
+    filesystem.write(filesystem.path(tempDir, "yarn.lock"), "")
+    const result = await spawnAndLog(`CI=true ${YARN_FIXTURE_INSTALL}`, {
+      pre: `cd ${tempDir}`,
+      outputFileName: "ignite-new-ci-bootstrap.txt",
+    })
+    if (result.exitCode !== 0) console.error(result.output)
+    expect(result.exitCode).toBe(0)
+    expect(filesystem.read(filesystem.path(tempDir, "yarn.lock"))).toContain("__metadata:")
+    const immutable = await spawnAndLog("CI=true yarn install --immutable --mode=skip-build", {
+      pre: `cd ${tempDir}`,
+      outputFileName: "ignite-new-ci-immutable.txt",
+    })
+    expect(immutable.exitCode).toBe(0)
   })
 
   it.each([
@@ -312,6 +338,9 @@ describe("ignite new defaults", () => {
         expect(agents).toContain(boundary)
       }
       expect(agents).toMatch(/evidence/i)
+      expect(agents).toMatch(
+        /explicit human approval before production deployments or app-store submissions/i,
+      )
       expect(readme).toContain("Corepack")
       expect(readme).toContain("4.9.1")
       expect(readme).toContain("yarn install")
@@ -347,6 +376,11 @@ describe("ignite new defaults", () => {
       ]) {
         expect(moduleRows.find((row) => row[0] === module)?.[1]).toBe(status)
       }
+      const firebase = moduleRows.find((row) => row[0] === "Firebase")
+      expect(firebase?.[2]).toMatch(/Analytics, Crashlytics, and messaging/i)
+      expect(firebase?.[3]).toMatch(/privacy|consent/i)
+      expect(firebase?.[3]).toMatch(/native.*build|build.*native/i)
+      expect(firebase?.[3]).toMatch(/server-only.*credentials|credentials.*server-only/i)
       expect(catalog).toMatch(/row.level security/i)
       expect(catalog).toMatch(/native.*build|build.*native/i)
       expect(catalog).toMatch(/not.*installable/i)
@@ -450,7 +484,7 @@ describe("ignite new defaults", () => {
         )
       }
 
-      await system.run(`cd ${appPath} && yarn install --mode=skip-build`)
+      await system.run(`cd ${appPath} && ${YARN_FIXTURE_INSTALL}`)
       const typecheck = await spawnAndLog(
         "yarn tsc --noEmit --strict --skipLibCheck --module commonjs --target es2022 app.config.ts",
         {
@@ -478,6 +512,18 @@ describe("ignite new defaults", () => {
         expect(config.extra.eas).toBeUndefined()
         expect(config.updates.url).toBeUndefined()
         expect(config.runtimeVersion).toBeUndefined()
+      }
+      for (const value of ["", "   "]) {
+        const config = JSON.parse(
+          await system.run(
+            `cd ${appPath} && APP_VARIANT=preview EAS_PROJECT_ID='${value}' EXPO_NO_DOTENV=1 yarn expo config --json`,
+          ),
+        )
+        expect(config.extra.eas).toBeUndefined()
+        expect(config.updates.url).toBeUndefined()
+        expect(config.runtimeVersion).toBeUndefined()
+        expect(config.extra.ignite.version).toBeDefined()
+        expect(config.updates.fallbackToCacheTimeout).toBe(0)
       }
       const projectId = "00000000-0000-4000-8000-000000000000"
       const config = JSON.parse(

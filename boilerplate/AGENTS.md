@@ -41,6 +41,8 @@ only example environment files with placeholders. `EXPO_PUBLIC_*` values are
 bundled into the client and must never contain secrets. Keep privileged service
 keys on a server; do not expose them through Expo config or application code.
 
+Require explicit human approval before production deployments or app-store submissions.
+
 ## Evidence before completion
 
 Run relevant checks after changes and before claiming completion. Report the
