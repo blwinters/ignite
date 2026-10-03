@@ -75,6 +75,22 @@ describe("ignite new optional Supabase module", () => {
       }
       expect(filesystem.exists(`${appPath}/modules`)).toBe(false)
       expect(filesystem.exists(`${appPath}/docs/supabase.md`)).toBe("file")
+      const removal = filesystem
+        .read(`${appPath}/docs/supabase.md`)
+        .split("## Removal")[1]
+        ?.replace(/\s+/g, " ")
+      expect(removal).toBeDefined()
+      expect(removal).toMatch(/first.*imports.*usages/i)
+      expect(removal).toContain("@supabase/supabase-js")
+      expect(removal).toContain("react-native-url-polyfill")
+      expect(removal).toMatch(/npm.*uninstall/i)
+      expect(removal).toMatch(/Yarn.*pnpm.*Bun.*remove/i)
+      expect(removal).toMatch(/delete.*services\/supabase/i)
+      expect(removal).toMatch(/docs\/supabase\.md/)
+      expect(removal).toMatch(/remove.*EXPO_PUBLIC_SUPABASE_URL/i)
+      expect(removal).toContain("EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+      expect(removal).toContain(".env.example")
+      expect(removal).toMatch(/check/)
       const env = filesystem.read(`${appPath}/.env.example`)
       expect(env.trim().split("\n")).toEqual([
         "EXPO_PUBLIC_SUPABASE_URL=",

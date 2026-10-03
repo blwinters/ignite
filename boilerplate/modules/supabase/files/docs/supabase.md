@@ -28,5 +28,21 @@ backend or network calls. Separately verify authentication, data access, and pol
 behavior with your backend on the platforms you support; static checks do not prove
 those flows. No backend project, policy, or auth screen is provisioned by this module.
 
+## Removal
+
+1. First remove application imports and usages of Supabase, including authentication
+   handlers and queries that depend on the client.
+2. Remove both `@supabase/supabase-js` and `react-native-url-polyfill` with your
+   project's package manager: npm uses `uninstall`; Yarn, pnpm, and Bun use `remove`.
+   Commit the updated package manifest and lockfile.
+3. Delete the module's `services/supabase/` files, including its config test, and
+   `docs/supabase.md` when no longer needed.
+4. Remove `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from
+   local `.env` files and configured build environments, and remove their placeholders
+   from `.env.example`. Keep any unrelated environment entries and the `.env` ignore
+   rules; delete `.env.example` only if it has no remaining entries.
+
+Run the project's `check` command after removal to catch remaining references.
+
 See [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys)
 and [React Native authentication](https://supabase.com/docs/guides/auth/quickstarts/react-native).
