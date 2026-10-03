@@ -1,6 +1,7 @@
 import { chmodSync } from "fs"
 import { filesystem, print, strings, system, GluegunToolbox } from "gluegun"
 import * as tempy from "tempy"
+import { parse } from "yaml"
 
 import { packager, PackagerName } from "../../src/tools/packager"
 import { spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
@@ -210,6 +211,12 @@ describe("ignite new defaults", () => {
     expect(result).not.toContain("--experimental=expo-router")
     expect(packageJson.main).toBe("expo-router/entry")
     expect(packageJson.packageManager).toBe("yarn@4.9.1")
+    expect(packageJson.scripts.lint).toBe("eslint .")
+    expect(packageJson.scripts["lint:fix"]).toBe("eslint . --fix")
+    expect(packageJson.scripts.typecheck).toBe("tsc --noEmit -p . --pretty")
+    expect(packageJson.scripts.check).toBe(
+      "yarn lint && yarn typecheck && yarn test --runInBand && yarn depcruise",
+    )
     expect(packageJson.dependencies["expo-router"]).toBeDefined()
     expect(packageJson.dependencies["expo-application"]).toBeUndefined()
     expect(filesystem.exists(`${appPath}/src/app/_layout.tsx`)).toBe("file")
@@ -219,6 +226,52 @@ describe("ignite new defaults", () => {
     expect(filesystem.exists(`${appPath}/src/navigators`)).toBe(false)
     expect(filesystem.read(`${appPath}/.gitignore`)).toContain("/android")
     expect(filesystem.read(`${appPath}/.gitignore`)).toContain("/ios")
+  })
+
+  it.each([
+    ["yarn", "yarn install --immutable", "yarn check"],
+    ["pnpm", "pnpm install --frozen-lockfile", "pnpm run check"],
+    ["npm", "npm ci --legacy-peer-deps", "npm run check"],
+    ["bun", "bun install --frozen-lockfile", "bun run check"],
+  ])("generates self-contained PR checks for %s", async (manager, install, check) => {
+    await spawnIgniteAndPrintIfFail(
+      `new Checks --yes --packager=${manager} --install-deps=false --git=false`,
+      { pre: `cd ${tempDir}`, outputFileName: `ignite-new-checks-${manager}.txt` },
+    )
+    const appPath = filesystem.path(tempDir, "Checks")
+    const workflowPath = filesystem.path(appPath, ".github/workflows/pr-checks.yml")
+    expect(filesystem.exists(workflowPath)).toBe("file")
+    const workflow = parse(filesystem.read(workflowPath))
+    expect(workflow.on).toHaveProperty("pull_request")
+    const steps = workflow.jobs.checks.steps
+    expect(steps).toContainEqual({ uses: "actions/checkout@v4" })
+    expect(steps).toContainEqual({ uses: "actions/setup-node@v4", with: { "node-version": 20 } })
+    expect(steps).toContainEqual({ name: "Install dependencies", run: install })
+    expect(steps).toContainEqual({ name: "Run checks", run: check })
+    for (const step of steps.filter((step) => step.uses)) {
+      expect(step.uses).toMatch(/^(actions\/|oven-sh\/)/)
+    }
+    if (manager === "yarn")
+      expect(steps).toContainEqual({ name: "Set up package manager", run: "corepack enable" })
+    if (manager === "pnpm") {
+      expect(steps).toContainEqual({
+        name: "Set up package manager",
+        run: "corepack enable\ncorepack prepare pnpm@10.9.0 --activate",
+      })
+    }
+    if (manager === "bun") {
+      expect(steps).toContainEqual({
+        uses: "oven-sh/setup-bun@v2",
+        with: { "bun-version": "latest" },
+      })
+    }
+    if (manager === "npm") expect(steps.some((step) => step.run?.includes("corepack"))).toBe(false)
+    const { scripts } = filesystem.read(filesystem.path(appPath, "package.json"), "json")
+    const prefix = manager === "yarn" ? "yarn" : `${manager} run`
+    const testArgs = manager === "npm" ? " -- --runInBand" : " --runInBand"
+    expect(scripts.check).toBe(
+      `${prefix} lint && ${prefix} typecheck && ${prefix} test${testArgs} && ${prefix} depcruise`,
+    )
   })
 
   it("honors --navigation=react-navigation and an explicit demo override", async () => {

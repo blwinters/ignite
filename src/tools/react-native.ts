@@ -1,4 +1,5 @@
 import { filesystem, GluegunToolbox } from "gluegun"
+import { parse, stringify } from "yaml"
 
 import { children } from "./filesystem-ext"
 import { boolFlag } from "./flag"
@@ -424,4 +425,26 @@ export function updatePackagerCommandsInReadme(readmePath: string, packagerName:
   } catch (e) {
     console.error("Unable to update README.md.")
   }
+}
+
+export function updatePackagerCommandsInWorkflow(workflowPath: string, packagerName: PackagerName) {
+  const workflow = parse(filesystem.read(workflowPath))
+  const steps = workflow.jobs.checks.steps
+  const setupIndex = steps.findIndex((step) => step.name === "Set up package manager")
+  if (packagerName === "npm") {
+    steps.splice(setupIndex, 1)
+  } else if (packagerName === "pnpm") {
+    steps[setupIndex].run = "corepack enable\ncorepack prepare pnpm@10.9.0 --activate"
+  } else if (packagerName === "bun") {
+    steps[setupIndex] = { uses: "oven-sh/setup-bun@v2", with: { "bun-version": "latest" } }
+  }
+  const installCommands: Record<PackagerName, string> = {
+    yarn: "yarn install --immutable",
+    pnpm: "pnpm install --frozen-lockfile",
+    npm: "npm ci --legacy-peer-deps",
+    bun: "bun install --frozen-lockfile",
+  }
+  steps.find((step) => step.name === "Install dependencies").run = installCommands[packagerName]
+  steps.find((step) => step.name === "Run checks").run = packager.runCmd("check", { packagerName })
+  filesystem.write(workflowPath, stringify(workflow))
 }

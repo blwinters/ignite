@@ -30,6 +30,7 @@ import {
   updateExpoRouterPackageJson,
   cleanupExpoRouterConversion,
   updatePackagerCommandsInReadme,
+  updatePackagerCommandsInWorkflow,
   createGeneratorTemplate,
   EXPO_ROUTER_SCREEN_TEMPLATE,
   EXPO_ROUTER_ROUTE_TEMPLATE,
@@ -566,6 +567,10 @@ module.exports = {
       // adjust the README.md with proper packager run commands
       const readmePath = path(targetPath, "README.md")
       updatePackagerCommandsInReadme(readmePath, packagerName)
+      updatePackagerCommandsInWorkflow(
+        path(targetPath, ".github/workflows/pr-checks.yml"),
+        packagerName,
+      )
 
       if (exists(targetIgnorePath) === false) {
         warning(`  Unable to copy ${boilerplateIgnorePath} to ${targetIgnorePath}`)
@@ -634,6 +639,13 @@ module.exports = {
       // Then write it back out.
       const packageJson = JSON.parse(packageJsonRaw)
       if (packagerName === "yarn") packageJson.packageManager = `yarn@${YARN_VERSION}`
+      packageJson.scripts.check = ["lint", "typecheck", "test", "depcruise"]
+        .map((script) => {
+          const command = packager.runCmd(script, packagerOptions)
+          if (script !== "test") return command
+          return `${command}${packagerName === "npm" ? " --" : ""} --runInBand`
+        })
+        .join(" && ")
       write("./package.json", packageJson)
       // #endregion
 
@@ -837,7 +849,7 @@ module.exports = {
       startSpinner(formattingMessage)
       if (installDeps === true) {
         // Make sure all our modifications are formatted nicely
-        await packager.run("lint", { ...packagerOptions })
+        await packager.run("lint:fix", { ...packagerOptions })
       } else {
         // if our linting configuration is not installed, try format
         // using prettier to make sure it's reasonably close, but this will skip
