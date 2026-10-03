@@ -1,10 +1,44 @@
 import { filesystem, GluegunToolbox, print, strings, system } from "gluegun"
 import * as tempy from "tempy"
+import { parse } from "yaml"
 
 import { packager } from "../../src/tools/packager"
 import { spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
 
 const newCommand = require("../../src/commands/new")
+
+describe("Supabase fork CI", () => {
+  it("installs and validates the selected module through the same fixture path as the base app", () => {
+    const workflowPath = filesystem.path(__dirname, "../../.github/workflows/ci.yml")
+    expect(filesystem.exists(workflowPath)).toBe("file")
+    const workflow = parse(filesystem.read(workflowPath))
+    const fixtures = workflow.jobs.fixtures
+    expect(fixtures.strategy.matrix.include).toContainEqual({
+      name: "supabase",
+      flags: "--modules=supabase",
+    })
+    const generate = fixtures.steps.find((step) => step.name === "Generate fixture")
+    expect(generate.env).toEqual({ FIXTURE_FLAGS: "${{ matrix.flags }}" })
+    expect(generate.run).toContain('node "$GITHUB_WORKSPACE/bin/ignite" new FixtureApp --yes')
+    expect(generate.run).toContain("--install-deps=false --git=false --use-cache=false")
+    expect(generate.run).toContain("$FIXTURE_FLAGS")
+    expect(fixtures.steps).toContainEqual({
+      "name": "Install fixture dependencies",
+      "working-directory": "${{ env.FIXTURE_PATH }}",
+      "run": "yarn install --mode=skip-build",
+    })
+    expect(fixtures.steps).toContainEqual({
+      "name": "Apply initial generation formatting",
+      "working-directory": "${{ env.FIXTURE_PATH }}",
+      "run": "yarn lint:fix",
+    })
+    expect(fixtures.steps).toContainEqual({
+      "name": "Check generated fixture",
+      "working-directory": "${{ env.FIXTURE_PATH }}",
+      "run": "yarn check",
+    })
+  })
+})
 
 describe("ignite new optional Supabase module", () => {
   let tempDir: string

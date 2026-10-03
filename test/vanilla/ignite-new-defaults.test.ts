@@ -8,6 +8,53 @@ import { spawnAndLog, spawnAndLogIgnite, spawnIgniteAndPrintIfFail } from "../_t
 
 const newCommand = require("../../src/commands/new")
 
+describe("fork CI", () => {
+  it("runs the full suite and checks each Yarn navigation fixture without masking failures", () => {
+    const workflowPath = filesystem.path(__dirname, "../../.github/workflows/ci.yml")
+    expect(filesystem.exists(workflowPath)).toBe("file")
+    const workflow = parse(filesystem.read(workflowPath))
+    expect(workflow.on).toHaveProperty("pull_request")
+    expect(workflow.on).toHaveProperty("push")
+    expect(workflow.permissions).toEqual({ contents: "read" })
+    const commands = workflow.jobs.cli.steps.map((step) => step.run).filter(Boolean)
+    for (const command of [
+      "pnpm install --frozen-lockfile",
+      "pnpm format:check",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test --runInBand --watchman=false",
+    ]) {
+      expect(commands).toContain(command)
+    }
+    // No path/name filter: ignite-new.test.ts's installed alternate-navigation test stays active.
+    const fixtures = workflow.jobs.fixtures
+    expect(fixtures.needs).toBeUndefined()
+    expect(fixtures.strategy["max-parallel"]).toBe(1)
+    expect(fixtures.strategy["fail-fast"]).toBe(false)
+    expect(fixtures.strategy.matrix.include).toEqual([
+      { name: "default", flags: "" },
+      { name: "react-navigation", flags: "--navigation=react-navigation" },
+      { name: "supabase", flags: "--modules=supabase" },
+    ])
+    for (const job of Object.values(workflow.jobs) as any[]) {
+      expect(job["continue-on-error"]).toBeUndefined()
+      expect(job.steps).toContainEqual({
+        uses: "actions/setup-node@v4",
+        with: { "node-version": 20 },
+      })
+      for (const step of job.steps) {
+        expect(step["continue-on-error"]).toBeUndefined()
+        if (step.uses) expect(step.uses).toMatch(/^(actions\/|oven-sh\/)/)
+      }
+    }
+    expect(fixtures.steps).toContainEqual({
+      "name": "Check generated fixture",
+      "working-directory": "${{ env.FIXTURE_PATH }}",
+      "run": "yarn check",
+    })
+  })
+})
+
 describe("ignite new defaults", () => {
   let tempDir: string
 

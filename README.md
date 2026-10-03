@@ -42,6 +42,13 @@ Here are a few videos / talks that introduce Ignite and show off some of its fea
 
 We've put great effort into the documentation as a team, please [read through it here](https://github.com/infinitered/ignite/blob/master/docs). If you're unsure why a certain decision was made related to this boilerplate or how to proceed with a particular feature, it's likely documented. If it still isn't clear, go through the proper [help channels](#reporting-bugs--getting-help) and we always welcome PRs to improve the docs!
 
+This fork keeps Ignite's identity and upstream foundations, with a small set of
+customized defaults. See [Maintaining the fork](./docs/maintaining-the-fork.md) for
+the differences, local usage, upstream sync, and validation. The generated app's
+[optional-module catalog](./boilerplate/docs/optional-modules.md) explains the
+available Supabase integration and planned modules. The `npx ignite-cli@latest`
+commands below install the upstream release; use the fork checkout to try these defaults.
+
 ## Tech Stack
 
 Nothing makes it into Ignite unless it's been proven on projects that Infinite Red works on. Ignite apps include the following rock-solid technical decisions out of the box:
