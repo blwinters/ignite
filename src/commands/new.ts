@@ -39,6 +39,7 @@ import { GluegunToolbox } from "../types"
 
 type Workflow = "cng" | "manual"
 type Navigation = "expo-router" | "react-navigation"
+const YARN_VERSION = "4.9.1"
 
 export interface Options {
   /**
@@ -361,19 +362,16 @@ module.exports = {
     }
 
     if (packagerName === undefined) {
-      const initial = availablePackagers.findIndex((p) => p === defaultPackagerName)
-      const NOT_FOUND = -1
-
-      if (initial === NOT_FOUND) {
-        p()
-        p(yellow(`Error: Default packager "${defaultPackagerName}" was not available on system`))
-        process.exit(1)
-      }
+      const preferredIndex = availablePackagers.indexOf(defaultPackagerName)
+      const initial = preferredIndex === -1 ? 0 : preferredIndex
 
       const packagerNameResponse = await prompt.ask<{ packagerName: PackagerName }>(() => ({
         type: "select",
         name: "packagerName",
-        message: "Which package manager do you want to use? (Recommended: Yarn)",
+        message:
+          preferredIndex === -1
+            ? "Which package manager do you want to use?"
+            : "Which package manager do you want to use? (Recommended: Yarn)",
         choices: availablePackagers,
         initial,
         prefix,
@@ -626,6 +624,7 @@ module.exports = {
 
       // Then write it back out.
       const packageJson = JSON.parse(packageJsonRaw)
+      if (packagerName === "yarn") packageJson.packageManager = `yarn@${YARN_VERSION}`
       write("./package.json", packageJson)
       // #endregion
 
@@ -640,28 +639,16 @@ module.exports = {
         const npmrcContents = read(npmrcPath)
         write(npmrcPath, `${npmrcContents}${EOL}node-linker=hoisted${EOL}`)
       } else if (packagerName === "yarn") {
-        const yarnVersion = await packager.run("-v", { packagerName })
-        const yarnMajorVersion = parseInt(yarnVersion.split(".")[0], 10)
-
-        // if yarn version > 1 fix .yarnrc.yml
-        if (yarnMajorVersion > 1) {
-          if (process.env.CI === "true") {
-            installFlags = " --no-immutable"
-          }
-          log(`yarn v${yarnMajorVersion} found... fixing .yarnrc.yml...`)
-          // append `nodeLinker: node-modules` to .yarnrc.yml
-          const yarnrcPath = path(targetPath, ".yarnrc.yml")
-          const yarnrcContents = read(yarnrcPath)
-          write(yarnrcPath, `${yarnrcContents ?? ""}${EOL}nodeLinker: node-modules${EOL}`)
-          // also create a blank yarn.lock file to avoid workspaces issue
-          write(path(targetPath, "yarn.lock"), "")
-          // update the `packagerManager` field in `package.json
-          await system.run(`yarn set version ${yarnVersion}`, { onProgress: log })
-        } else {
-          warning(
-            `We do not recommend using yarn v1 due to security and performance reasons. \nIf you do use yarn, we recommend using yarn v4 and making sure enableScripts is set to false in your .yarnrc.yml file.`,
-          )
+        if (process.env.CI === "true") {
+          installFlags = " --no-immutable"
         }
+        log(`Configuring Yarn ${YARN_VERSION}...`)
+        const yarnrcPath = path(targetPath, ".yarnrc.yml")
+        const yarnrcContents = read(yarnrcPath)
+        write(yarnrcPath, `${yarnrcContents ?? ""}${EOL}nodeLinker: node-modules${EOL}`)
+        // Avoid inheriting a parent workspace while setting the pinned Yarn version.
+        write(path(targetPath, "yarn.lock"), "")
+        await system.run(`yarn set version ${YARN_VERSION}`, { onProgress: log })
       }
 
       // check if there is a dependency cache using a hash of the package.json
