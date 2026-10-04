@@ -1,0 +1,105 @@
+name: Fork CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: CLI and integration suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up package managers
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.9.0 --activate
+          corepack prepare yarn@4.9.1 --activate
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Set up integration test environment
+        run: |
+          git config --global user.name "Ignite CI"
+          git config --global user.email "ignite-ci@example.invalid"
+          # Linux integration tests generate native files but do not install CocoaPods.
+          mkdir -p "$RUNNER_TEMP/ignite-ci-bin"
+          ln -s /bin/true "$RUNNER_TEMP/ignite-ci-bin/pod"
+          echo "$RUNNER_TEMP/ignite-ci-bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm format:check
+      - name: Lint CLI and tests
+        run: pnpm lint
+      - name: Typecheck CLI
+        run: pnpm typecheck
+      - name: Compile CLI
+        run: pnpm compile
+      - name: Check CLI dependency boundaries
+        run: pnpm depcruise
+      - name: Run full unit and integration suite
+        run: pnpm test --runInBand --watchman=false
+
+  fixtures:
+    name: Generated app (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Each variant gets a fresh runner. Keep large fixture installs serial and
+    # report all variants even when the compatibility navigation path fails.
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - name: default
+            flags: ""
+          - name: react-navigation
+            flags: --navigation=react-navigation
+          - name: supabase
+            flags: --modules=supabase
+          - name: tanstack-query
+            flags: --modules=tanstack-query
+          - name: tanstack-query-react-navigation
+            flags: --modules=tanstack-query --navigation=react-navigation
+          - name: supabase-query
+            flags: --modules=supabase,tanstack-query
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up package managers
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.9.0 --activate
+          corepack prepare yarn@4.9.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate fixture
+        env:
+          FIXTURE_FLAGS: ${{ matrix.flags }}
+        run: |
+          fixture_root=$(mktemp -d "$RUNNER_TEMP/ignite-fixture.XXXXXX")
+          cd "$fixture_root"
+          # Flags come only from the literal matrix above. Exercise --yes defaults.
+          node "$GITHUB_WORKSPACE/bin/ignite" new FixtureApp --yes --install-deps=false --git=false --use-cache=false $FIXTURE_FLAGS
+          echo "FIXTURE_PATH=$fixture_root/FixtureApp" >> "$GITHUB_ENV"
+      - name: Install fixture dependencies
+        working-directory: ${{ env.FIXTURE_PATH }}
+        # Fresh generated fixtures have an empty lockfile; allow this bootstrap
+        # to resolve it without disabling strict validation globally.
+        run: yarn install --mode=skip-build --no-immutable
+      - name: Apply initial generation formatting
+        working-directory: ${{ env.FIXTURE_PATH }}
+        run: yarn lint:fix
+      - name: Check generated fixture
+        working-directory: ${{ env.FIXTURE_PATH }}
+        run: yarn check

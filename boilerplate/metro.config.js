@@ -16,9 +16,8 @@ config.transformer.getTransformOptions = async () => ({
   },
 })
 
-// This is a temporary fix that helps fixing an issue with axios/apisauce.
-// See the following issues in Github for more details:
-// https://github.com/infinitered/apisauce/issues/331
+// Prefer Axios's browser-compatible entry when Metro resolves package exports.
+// See the following Axios issue for more details:
 // https://github.com/axios/axios/issues/6899
 // The solution was taken from the following issue:
 // https://github.com/facebook/metro/issues/1272

@@ -1,73 +1,55 @@
-import { ApiErrorResponse } from "apisauce"
+import { AxiosError, CanceledError } from "axios"
 
 import { getGeneralApiProblem } from "./apiProblem"
 
-test("handles connection errors", () => {
-  expect(getGeneralApiProblem({ problem: "CONNECTION_ERROR" } as ApiErrorResponse<null>)).toEqual({
-    kind: "cannot-connect",
-    temporary: true,
-  })
+test.each([
+  ["ERR_NETWORK", { kind: "cannot-connect", temporary: true }],
+  ["ECONNREFUSED", { kind: "cannot-connect", temporary: true }],
+  ["ECONNABORTED", { kind: "timeout", temporary: true }],
+  ["ETIMEDOUT", { kind: "timeout", temporary: true }],
+  ["ERR_BAD_RESPONSE", { kind: "unknown", temporary: true }],
+])("classifies Axios error code %s", (code, problem) => {
+  expect(getGeneralApiProblem(new AxiosError("Request failed", code))).toEqual(problem)
 })
 
-test("handles network errors", () => {
-  expect(getGeneralApiProblem({ problem: "NETWORK_ERROR" } as ApiErrorResponse<null>)).toEqual({
-    kind: "cannot-connect",
-    temporary: true,
+test.each([
+  [401, { kind: "unauthorized" }],
+  [403, { kind: "forbidden" }],
+  [404, { kind: "not-found" }],
+  [418, { kind: "rejected" }],
+  [429, { kind: "rejected" }],
+  [500, { kind: "server" }],
+  [503, { kind: "server" }],
+])("classifies HTTP %s", (status, problem) => {
+  const error = new AxiosError("Request failed", undefined, undefined, undefined, {
+    status,
+    statusText: "Failure",
+    headers: {},
+    config: { headers: {} } as never,
+    data: null,
   })
+  expect(getGeneralApiProblem(error)).toEqual(problem)
 })
 
-test("handles timeouts", () => {
-  expect(getGeneralApiProblem({ problem: "TIMEOUT_ERROR" } as ApiErrorResponse<null>)).toEqual({
-    kind: "timeout",
-    temporary: true,
-  })
+test("ignores Axios cancellation", () => {
+  expect(getGeneralApiProblem(new CanceledError())).toBeNull()
 })
 
-test("handles server errors", () => {
-  expect(getGeneralApiProblem({ problem: "SERVER_ERROR" } as ApiErrorResponse<null>)).toEqual({
-    kind: "server",
-  })
+test("ignores standard AbortSignal cancellation", () => {
+  const error = new Error("Aborted")
+  error.name = "AbortError"
+  expect(getGeneralApiProblem(error)).toBeNull()
 })
 
-test("handles unknown errors", () => {
-  expect(getGeneralApiProblem({ problem: "UNKNOWN_ERROR" } as ApiErrorResponse<null>)).toEqual({
-    kind: "unknown",
-    temporary: true,
-  })
-})
+test.each([new Error("Unexpected"), null, undefined, "failure", { message: "Unknown" }])(
+  "accepts unknown errors %j",
+  (error) => {
+    expect(getGeneralApiProblem(error)).toEqual({ kind: "unknown", temporary: true })
+  },
+)
 
-test("handles unauthorized errors", () => {
-  expect(
-    getGeneralApiProblem({ problem: "CLIENT_ERROR", status: 401 } as ApiErrorResponse<null>),
-  ).toEqual({
-    kind: "unauthorized",
+test("classifies malformed response data", () => {
+  expect(getGeneralApiProblem(new TypeError("Expected an episodes array"))).toEqual({
+    kind: "bad-data",
   })
-})
-
-test("handles forbidden errors", () => {
-  expect(
-    getGeneralApiProblem({ problem: "CLIENT_ERROR", status: 403 } as ApiErrorResponse<null>),
-  ).toEqual({
-    kind: "forbidden",
-  })
-})
-
-test("handles not-found errors", () => {
-  expect(
-    getGeneralApiProblem({ problem: "CLIENT_ERROR", status: 404 } as ApiErrorResponse<null>),
-  ).toEqual({
-    kind: "not-found",
-  })
-})
-
-test("handles other client errors", () => {
-  expect(
-    getGeneralApiProblem({ problem: "CLIENT_ERROR", status: 418 } as ApiErrorResponse<null>),
-  ).toEqual({
-    kind: "rejected",
-  })
-})
-
-test("handles cancellation errors", () => {
-  expect(getGeneralApiProblem({ problem: "CANCEL_ERROR" } as ApiErrorResponse<null>)).toBeNull()
 })

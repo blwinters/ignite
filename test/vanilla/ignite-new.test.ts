@@ -1,7 +1,7 @@
 import { filesystem } from "gluegun"
 import * as tempy from "tempy"
 
-import { runError, run, runIgnite, spawnIgniteAndPrintIfFail } from "../_test-helpers"
+import { runError, run, runIgnite, spawnAndLog, spawnIgniteAndPrintIfFail } from "../_test-helpers"
 
 const APP_NAME = "Foo"
 const originalDir = process.cwd()
@@ -24,7 +24,7 @@ describe("ignite new", () => {
     })
   })
 
-  describe(`ignite new ${APP_NAME} --debug --packager=bun --yes`, () => {
+  describe(`ignite new ${APP_NAME} --debug --packager=bun --navigation=react-navigation --remove-demo=false --yes`, () => {
     let tempDir: string
     let result: string
     let appPath: string
@@ -32,11 +32,14 @@ describe("ignite new", () => {
     beforeAll(async () => {
       tempDir = tempy.directory({ prefix: "ignite-" })
 
-      result = await spawnIgniteAndPrintIfFail(`new ${APP_NAME} --debug --packager=bun --yes`, {
-        pre: `cd ${tempDir}`,
-        post: `cd ${originalDir}`,
-        outputFileName: "ignite-new-output-bun.txt",
-      })
+      result = await spawnIgniteAndPrintIfFail(
+        `new ${APP_NAME} --debug --packager=bun --navigation=react-navigation --remove-demo=false --yes`,
+        {
+          pre: `cd ${tempDir}`,
+          post: `cd ${originalDir}`,
+          outputFileName: "ignite-new-output-bun.txt",
+        },
+      )
 
       appPath = filesystem.path(tempDir, APP_NAME)
     })
@@ -103,22 +106,24 @@ describe("ignite new", () => {
       expect(appJS).toContain("export function App")
     })
 
-    it("should be able to use `generate` command and have pass output pass bun run test, bun run lint, and bun run compile scripts", async () => {
+    it("should pass nonmutating bun run check and validate generated components", async () => {
       // other common test operations
       const runOpts = {
         pre: `cd ${appPath}`,
         post: `cd ${originalDir}`,
       }
 
-      // #region Assert Typescript Compiles With No Errors
-      let resultTS: string
+      // #region Assert Generated Checks Pass Without Changing Files
       try {
-        resultTS = await run(`bun run compile`, runOpts)
-      } catch (e) {
-        resultTS = e.stdout
-        console.error(resultTS) // This will only show if you run in --verbose mode.
+        const check = await spawnAndLog("bun run check", {
+          ...runOpts,
+          outputFileName: "ignite-new-checks-bun.txt",
+        })
+        if (check.exitCode !== 0) console.error(check.output)
+        expect(check.exitCode).toBe(0)
+      } finally {
+        expect(await run("git diff --exit-code", runOpts)).toBe("")
       }
-      expect(resultTS).not.toContain("error")
       // #endregion
 
       // #region Assert Generators Work
@@ -294,7 +299,29 @@ describe("ignite new", () => {
       expect(result).toContain("Now get cooking! 🍽")
     })
 
-    it("should be able to use `generate` command and have pass output pass pnpm run test, pnpm run lint, and pnpm run compile scripts", async () => {
+    it("reports lint problems without editing and exposes explicit fixes with Yarn", async () => {
+      const fixturePath = filesystem.path(appPath, "src/task2LintFixture.ts")
+      const unformatted = "export const task2LintFixture='fixture';\n"
+      filesystem.write(fixturePath, unformatted)
+      try {
+        const lint = await spawnAndLog("yarn lint", {
+          pre: `cd ${appPath}`,
+          outputFileName: "ignite-new-checks-lint.txt",
+        })
+        expect(filesystem.read(fixturePath)).toBe(unformatted)
+        expect(lint.exitCode).toBe(1)
+        const fix = await spawnAndLog("yarn lint:fix", {
+          pre: `cd ${appPath}`,
+          outputFileName: "ignite-new-checks-lint-fix.txt",
+        })
+        if (fix.exitCode !== 0) throw new Error(fix.output)
+        expect(filesystem.read(fixturePath)).toBe('export const task2LintFixture = "fixture"\n')
+      } finally {
+        filesystem.remove(fixturePath)
+      }
+    })
+
+    it("should pass nonmutating check with Yarn after initial generation formatting", async () => {
       // other common test operations
       const runOpts = {
         pre: `cd ${appPath}`,
@@ -303,11 +330,12 @@ describe("ignite new", () => {
 
       // #region Assert package.json Scripts Can Be Run
       // run the tests; if they fail, run will raise and this test will fail
-      await run(`pnpm run test`, runOpts)
-      await run(`pnpm run lint`, runOpts)
-      await run(`pnpm run compile`, runOpts)
-      await run(`pnpm run depcruise`, runOpts)
-      expect(await run("git diff HEAD --no-ext-diff", runOpts)).toBe("")
+      const check = await spawnAndLog("yarn check", {
+        ...runOpts,
+        outputFileName: "ignite-new-checks-yarn.txt",
+      })
+      if (check.exitCode !== 0) throw new Error(check.output)
+      expect(await run("git diff --exit-code", runOpts)).toBe("")
     })
     // #endregion
 

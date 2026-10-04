@@ -7,6 +7,7 @@ import {
   removeExpoRouterGeneratorTemplates,
   removeScreenGenerator,
   runIgnite,
+  spawnAndLog,
 } from "../_test-helpers"
 
 const BOILERPLATE_PATH = filesystem.path(__dirname, "../../boilerplate")
@@ -20,6 +21,7 @@ const setup = (): { TEMP_DIR: string } => {
     // copy the relevant folders
     filesystem.copy(BOILERPLATE_PATH + "/app", TEMP_DIR + "/app", { overwrite: true })
     filesystem.copy(BOILERPLATE_PATH + "/ignite", TEMP_DIR + "/ignite", { overwrite: true })
+    filesystem.copy(BOILERPLATE_PATH + "/.prettierrc", TEMP_DIR + "/.prettierrc")
   })
 
   afterEach(() => {
@@ -45,6 +47,69 @@ const replaceHomeDir = (result: string, { mock = "/user/home/ignite", temp = TEM
   result.replace(new RegExp(temp, "g"), mock)
 
 describe("ignite-cli generate", () => {
+  it.each([
+    ["component", "ExceptionallyLongComponentNameThatNeedsWrapping"],
+    ["screen", "ExceptionallyLongScreenNameThatNeedsWrappingScreen"],
+    ["navigator", "ExceptionallyLongNavigatorNameThatNeedsWrappingNavigator"],
+  ])("formats emitted %s files with the project's configuration", async (generator, name) => {
+    filesystem.write(`${TEMP_DIR}/.prettierrc`, {
+      printWidth: 60,
+      semi: true,
+      singleQuote: true,
+    })
+    const result = await runIgnite(`generate ${generator} ${name}`, options)
+    const generatedPath = result.trim().split("\n").at(-1)?.trim()
+    expect(generatedPath).toBeDefined()
+    const prettier = filesystem.path(require.resolve("prettier"), "..", "bin", "prettier.cjs")
+    const paths = [generatedPath]
+    if (generator === "screen") {
+      const patchedPath = `${TEMP_DIR}/app/navigators/navigationTypes.ts`
+      expect(read(patchedPath)).toContain("ExceptionallyLongScreenNameThatNeedsWrapping: undefined")
+      paths.push(patchedPath)
+    }
+    const checked = await spawnAndLog(
+      `node "${prettier}" --check ${paths.map((path) => `"${path}"`).join(" ")}`,
+      { outputFileName: `generate-format-${generator}.txt` },
+    )
+    expect(checked).toEqual(expect.objectContaining({ exitCode: 0 }))
+    const eslint = filesystem.path(require.resolve("eslint"), "..", "..", "bin", "eslint.js")
+    const linted = await spawnAndLog(
+      `node "${eslint}" --no-eslintrc --config "${BOILERPLATE_PATH}/.eslintrc.js" --rule 'import/no-unresolved: off' ${paths.map((path) => `"${path}"`).join(" ")}`,
+      { outputFileName: `generate-lint-${generator}.txt` },
+    )
+    expect(linted).toEqual(expect.objectContaining({ exitCode: 0 }))
+  })
+
+  it("preserves skipped files and formats explicitly overwritten files", async () => {
+    const componentPath = `${TEMP_DIR}/app/components/Topping.tsx`
+    const original = "export const Topping=()=>null;\n"
+    filesystem.write(componentPath, original)
+    await runIgnite("generate component Topping", options)
+    expect(read(componentPath)).toBe(original)
+
+    await runIgnite("generate component Topping --overwrite", options)
+    const prettier = filesystem.path(require.resolve("prettier"), "..", "bin", "prettier.cjs")
+    const checked = await spawnAndLog(`node "${prettier}" --check "${componentPath}"`, {
+      outputFileName: "generate-format-overwrite.txt",
+    })
+    expect(checked).toEqual(expect.objectContaining({ exitCode: 0 }))
+    expect(read(componentPath)).toContain("Describe your component here")
+  })
+
+  it("honors EditorConfig indentation when Prettier config omits tabWidth", async () => {
+    filesystem.write(
+      `${TEMP_DIR}/.editorconfig`,
+      "root = true\n\n[*]\nindent_style = space\nindent_size = 4\n",
+    )
+    await runIgnite("generate component Topping", options)
+    const componentPath = `${TEMP_DIR}/app/components/Topping.tsx`
+    const prettier = filesystem.path(require.resolve("prettier"), "..", "bin", "prettier.cjs")
+    const checked = await spawnAndLog(`node "${prettier}" --check "${componentPath}"`, {
+      outputFileName: "generate-format-editorconfig.txt",
+    })
+    expect(checked).toEqual(expect.objectContaining({ exitCode: 0 }))
+  })
+
   describe("components", () => {
     it("should generate Topping component and patch index components export", async () => {
       const result = await runIgnite(`generate component Topping`, options)
@@ -58,9 +123,10 @@ describe("ignite-cli generate", () => {
       `)
       expect(read(`${TEMP_DIR}/app/components/Topping.tsx`)).toMatchInlineSnapshot(`
 "import { StyleProp, TextStyle, View, ViewStyle } from "react-native"
+
+import { Text } from "@/components/Text"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
-import { Text } from "@/components/Text"
 
 export interface ToppingProps {
   /**
@@ -75,7 +141,7 @@ export interface ToppingProps {
 export const Topping = (props: ToppingProps) => {
   const { style } = props
   const $styles = [$container, style]
-  const { themed } = useAppTheme();
+  const { themed } = useAppTheme()
 
   return (
     <View style={$styles}>
@@ -110,9 +176,10 @@ const $text: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
       `)
       expect(read(`${TEMP_DIR}/app/components/sub/to/my/Topping.tsx`)).toMatchInlineSnapshot(`
 "import { StyleProp, TextStyle, View, ViewStyle } from "react-native"
+
+import { Text } from "@/components/Text"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
-import { Text } from "@/components/Text"
 
 export interface ToppingProps {
   /**
@@ -127,7 +194,7 @@ export interface ToppingProps {
 export const Topping = (props: ToppingProps) => {
   const { style } = props
   const $styles = [$container, style]
-  const { themed } = useAppTheme();
+  const { themed } = useAppTheme()
 
   return (
     <View style={$styles}>
@@ -205,14 +272,13 @@ describe("ignite-cli generate screens expo-router style", () => {
     `)
 
     expect(read(`${TEMP_DIR}/src/app/(app)/(tabs)/log-in.tsx`)).toMatchInlineSnapshot(`
-      "import { LogInScreen } from "@/screens/LogInScreen"
-      
-      export default function LogIn() {
-        return <LogInScreen />
-      }
+"import { LogInScreen } from "@/screens/LogInScreen"
 
-      "
-      `)
+export default function LogIn() {
+  return <LogInScreen />
+}
+"
+`)
   })
 
   it("should generate dynamic id files at requested path", async () => {
@@ -229,13 +295,12 @@ describe("ignite-cli generate screens expo-router style", () => {
         "
       `)
     expect(read(`${TEMP_DIR}/src/app/(app)/(tabs)/podcasts/[id].tsx`)).toMatchInlineSnapshot(`
-      "import { IdScreen } from "@/screens/IdScreen"
+"import { IdScreen } from "@/screens/IdScreen"
 
-      export default function Id() {
-        return <IdScreen />
-      }
-
-      "
-      `)
+export default function Id() {
+  return <IdScreen />
+}
+"
+`)
   })
 })

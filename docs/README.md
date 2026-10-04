@@ -61,7 +61,7 @@ Nothing makes it into Ignite unless it's been proven on projects that Infinite R
 | Expo Localization                | Internationalization | v17     | i18n support (including RTL!)                  |
 | RN Reanimated                    | Animations           | v4      | Beautiful and performant animations            |
 | MMKV                             | Persistence          | v3      | State persistence                              |
-| apisauce                         | REST client          | v3      | Communicate with back-end                      |
+| Axios                            | HTTP client          | v1      | Communicate with back-end                      |
 | Jest                             | Test Runner          | v29     | Standard test runner for JS apps               |
 | date-fns                         | Date library         | v4      | Excellent date library                         |
 | react-native-keyboard-controller | Keyboard library     | v1      | Great keyboard manager library                 |

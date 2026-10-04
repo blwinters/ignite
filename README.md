@@ -42,6 +42,15 @@ Here are a few videos / talks that introduce Ignite and show off some of its fea
 
 We've put great effort into the documentation as a team, please [read through it here](https://github.com/infinitered/ignite/blob/master/docs). If you're unsure why a certain decision was made related to this boilerplate or how to proceed with a particular feature, it's likely documented. If it still isn't clear, go through the proper [help channels](#reporting-bugs--getting-help) and we always welcome PRs to improve the docs!
 
+This fork keeps Ignite's identity and upstream foundations, with a small set of
+customized defaults. See [Maintaining the fork](./docs/maintaining-the-fork.md) for
+the differences, local usage, upstream sync, and validation. The generated app's
+[optional-module catalog](./boilerplate/docs/optional-modules.md) explains the
+available Supabase and TanStack Query integrations and planned modules. Select
+`--modules=tanstack-query` or `--modules=supabase,tanstack-query` to opt in; no
+module is enabled by default. The `npx ignite-cli@latest`
+commands below install the upstream release; use the fork checkout to try these defaults.
+
 ## Tech Stack
 
 Nothing makes it into Ignite unless it's been proven on projects that Infinite Red works on. Ignite apps include the following rock-solid technical decisions out of the box:
@@ -57,7 +66,7 @@ Nothing makes it into Ignite unless it's been proven on projects that Infinite R
 | Expo Localization                | Internationalization | v17     | i18n support (including RTL!)                  |
 | RN Reanimated                    | Animations           | v4      | Beautiful and performant animations            |
 | MMKV                             | Persistence          | v3      | State persistence                              |
-| apisauce                         | REST client          | v3      | Communicate with back-end                      |
+| Axios                            | HTTP client          | v1      | Communicate with back-end                      |
 | Jest                             | Test Runner          | v29     | Standard test runner for JS apps               |
 | date-fns                         | Date library         | v4      | Excellent date library                         |
 | react-native-keyboard-controller | Keyboard library     | v1      | Great keyboard manager library                 |

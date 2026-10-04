@@ -31,7 +31,9 @@ describe(`ignite new with expo-router`, () => {
     })
 
     it("should convert to Expo Router", async () => {
-      expect(result).toContain("--experimental=expo-router")
+      const reproduction = result.split("For next time, here are the Ignite options you picked:")[1]
+      expect(reproduction).toContain("--navigation=expo-router")
+      expect(reproduction).not.toContain("--experimental=expo-router")
 
       // make sure src/navigators, app/, app.tsx is gone
       const dirs = filesystem.list(appPath)

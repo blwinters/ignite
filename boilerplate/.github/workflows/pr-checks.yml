@@ -1,0 +1,22 @@
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Set up package manager
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --immutable
+      - name: Run checks
+        run: yarn check

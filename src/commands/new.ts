@@ -3,6 +3,12 @@ import { EOL } from "os"
 import { cache } from "../tools/cache"
 import { demoDependenciesToRemove, findDemoPatches } from "../tools/demo"
 import { boolFlag } from "../tools/flag"
+import {
+  addOptionalModuleDependencies,
+  applyOptionalModules,
+  availableOptionalModules,
+  parseOptionalModules,
+} from "../tools/modules"
 import { packager, PackagerName } from "../tools/packager"
 import {
   p,
@@ -30,6 +36,7 @@ import {
   updateExpoRouterPackageJson,
   cleanupExpoRouterConversion,
   updatePackagerCommandsInReadme,
+  updatePackagerCommandsInWorkflow,
   createGeneratorTemplate,
   EXPO_ROUTER_SCREEN_TEMPLATE,
   EXPO_ROUTER_ROUTE_TEMPLATE,
@@ -38,6 +45,8 @@ import type { ValidationsExports } from "../tools/validations"
 import { GluegunToolbox } from "../types"
 
 type Workflow = "cng" | "manual"
+type Navigation = "expo-router" | "react-navigation"
+const YARN_VERSION = "4.9.1"
 
 export interface Options {
   /**
@@ -83,6 +92,13 @@ export interface Options {
    */
   packager?: "npm" | "yarn" | "pnpm" | "bun"
   /**
+   * Navigation library used by the generated project
+   * @default expo-router
+   */
+  navigation?: Navigation
+  /** Comma-separated opt-in modules. No modules are enabled by default. */
+  modules?: string
+  /**
    * The target directory where the project will be created.
    *
    * Input Source: `prompt.ask` | `parameter.option`
@@ -93,7 +109,7 @@ export interface Options {
    * Whether or not to remove the boilerplate demo code
    *
    * Input Source: `prompt.ask` | `parameter.option`
-   * @default false
+   * @default true
    */
   removeDemo?: boolean
   /**
@@ -330,12 +346,9 @@ module.exports = {
     // #endregion
 
     // #region Packager
-    // check if a packager is provided, or detect one
-    // we pass in expo because we can't use pnpm if we're using expo
-
     const availablePackagers = packager.availablePackagers()
     log(`availablePackagers: ${availablePackagers}`)
-    const defaultPackagerName = availablePackagers.includes("pnpm") ? "pnpm" : "npm"
+    const defaultPackagerName = "yarn"
     let packagerName = getDefault(options.packager) ? defaultPackagerName : options.packager
 
     const validatePackagerName = (input: unknown): input is PackagerName =>
@@ -358,24 +371,30 @@ module.exports = {
     }
 
     if (packagerName === undefined) {
-      const initial = availablePackagers.findIndex((p) => p === defaultPackagerName)
-      const NOT_FOUND = -1
-
-      if (initial === NOT_FOUND) {
-        p()
-        p(yellow(`Error: Default packager "${defaultPackagerName}" was not available on system`))
-        process.exit(1)
-      }
+      const preferredIndex = availablePackagers.indexOf(defaultPackagerName)
+      const initial = preferredIndex === -1 ? 0 : preferredIndex
 
       const packagerNameResponse = await prompt.ask<{ packagerName: PackagerName }>(() => ({
         type: "select",
         name: "packagerName",
-        message: "Which package manager do you want to use? (Note: we recommend pnpm)",
+        message:
+          preferredIndex === -1
+            ? "Which package manager do you want to use?"
+            : "Which package manager do you want to use? (Recommended: Yarn)",
         choices: availablePackagers,
         initial,
         prefix,
       }))
       packagerName = packagerNameResponse.packagerName
+    }
+
+    if (packagerName === "yarn" && !system.which("corepack")) {
+      p(
+        yellow(
+          `Error: Yarn ${YARN_VERSION} requires Corepack. Install it with npm install --global corepack and retry, or select --packager=npm.`,
+        ),
+      )
+      process.exit(1)
     }
 
     const packagerOptions = { packagerName }
@@ -406,81 +425,99 @@ module.exports = {
 
     // #region Experimental Features parsing
     let expoVersion
-    let expoRouter
     const experimentalFlags = options.experimental?.split(",") ?? []
     log(`experimentalFlags: ${experimentalFlags}`)
-    let removeDemo = boolFlag(options.removeDemo)
 
     experimentalFlags.forEach((flag) => {
-      if (flag.indexOf("expo-") > -1) {
-        if (flag !== "expo-router") {
-          expoVersion = flag.substring(5)
-        } else {
-          // user wants to convert to expo-router
-          // force demo code removal for easier conversion
-          // maybe one day convert the demo app
-          expoRouter = true
-
-          if (!removeDemo) {
-            p()
-            p(
-              yellow(
-                `Enabling Expo Router will currently remove the demo application. To continue with the demo app, check out the recipe with full instructions: https://ignitecookbook.com/docs/recipes/ExpoRouter`,
-              ),
-            )
-            p(yellow(`Setting --remove-demo=true`))
-            removeDemo = true
-          }
-        }
+      if (flag.startsWith("expo-") && flag !== "expo-router") {
+        expoVersion = flag.substring(5)
       }
     })
     // #endregion
 
-    // #region Prompt to enable experimental features
-
-    // Expo Router
-    const defaultExpoRouter = false
-    let experimentalExpoRouter = getDefault(expoRouter) ? defaultExpoRouter : boolFlag(expoRouter)
-    if (experimentalExpoRouter === undefined) {
-      const expoRouterResponse = await prompt.ask<{ experimentalExpoRouter: boolean }>(() => ({
-        type: "confirm",
-        name: "experimentalExpoRouter",
-        message:
-          "[Experimental] Expo Router for navigation? (This will remove the demo application)",
-        initial: defaultExpoRouter,
-        format: prettyPrompt.format.boolean,
+    // #region Navigation
+    const defaultNavigation: Navigation = "expo-router"
+    if (
+      options.navigation !== undefined &&
+      !["expo-router", "react-navigation"].includes(options.navigation)
+    ) {
+      p(
+        yellow(
+          `Error: Invalid navigation: "${options.navigation}". Valid choices are expo-router, react-navigation.`,
+        ),
+      )
+      process.exit(1)
+    }
+    if (options.navigation === "react-navigation" && experimentalFlags.includes("expo-router")) {
+      p(
+        yellow(
+          "Error: Conflicting navigation choices: --navigation=react-navigation and --experimental=expo-router.",
+        ),
+      )
+      process.exit(1)
+    }
+    const navigationOption =
+      options.navigation ?? (experimentalFlags.includes("expo-router") ? "expo-router" : undefined)
+    let navigation = getDefault(navigationOption) ? defaultNavigation : navigationOption
+    if (navigation === undefined) {
+      const navigationResponse = await prompt.ask<{ navigation: Navigation }>(() => ({
+        type: "select",
+        name: "navigation",
+        message: "Which navigation library do you want to use?",
+        choices: ["expo-router", "react-navigation"],
+        initial: defaultNavigation,
         prefix,
       }))
-      experimentalExpoRouter = expoRouterResponse.experimentalExpoRouter
-
-      // update experimental flags if needed for buildCliCommand output
-      if (experimentalExpoRouter && !experimentalFlags.includes("expo-router")) {
-        experimentalFlags.push("expo-router")
-      }
+      navigation = navigationResponse.navigation
     }
+    const expoRouter = navigation === "expo-router"
+    // #endregion
 
     // #region Prompt to Remove Demo code
-    const defaultRemoveDemo = experimentalExpoRouter
-    if (defaultRemoveDemo) {
-      p(yellow(`Warning: the demo application will be removed.`))
-    }
-    removeDemo = getDefault(options.removeDemo) ? defaultRemoveDemo : boolFlag(options.removeDemo)
+    const defaultRemoveDemo = true
+    let removeDemo = getDefault(options.removeDemo)
+      ? defaultRemoveDemo
+      : boolFlag(options.removeDemo)
 
-    if (!defaultRemoveDemo && removeDemo === undefined) {
+    if (removeDemo === undefined) {
       const removeDemoResponse = await prompt.ask<{ removeDemo: boolean }>(() => ({
         type: "confirm",
         name: "removeDemo",
-        message:
-          "Remove demo code? We recommend leaving it in if it's your first time using Ignite",
+        message: "Remove demo code?",
         initial: defaultRemoveDemo,
         format: prettyPrompt.format.boolean,
         prefix,
       }))
       removeDemo = removeDemoResponse.removeDemo
-    } else {
-      removeDemo = defaultRemoveDemo
+    }
+    if (expoRouter && removeDemo === false) {
+      p(
+        yellow(
+          "Error: Ignite's Expo Router conversion requires demo removal. Use --navigation=react-navigation --remove-demo=false to retain the demo application.",
+        ),
+      )
+      process.exit(1)
     }
     // #endregion
+
+    let selectedModules = []
+    try {
+      selectedModules = parseOptionalModules(options.modules)
+    } catch (error) {
+      p(yellow(`Error: ${error.message}`))
+      process.exit(1)
+    }
+    if (options.modules === undefined && !yname) {
+      const response = await prompt.ask<{ modules: string[] }>(() => ({
+        type: "multiselect",
+        name: "modules",
+        message: "Which optional modules do you want to install?",
+        choices: availableOptionalModules,
+        initial: [],
+        prefix,
+      }))
+      selectedModules = parseOptionalModules(response.modules.join(","))
+    }
 
     // #region Debug
     // start tracking performance
@@ -557,6 +594,10 @@ module.exports = {
       // adjust the README.md with proper packager run commands
       const readmePath = path(targetPath, "README.md")
       updatePackagerCommandsInReadme(readmePath, packagerName)
+      updatePackagerCommandsInWorkflow(
+        path(targetPath, ".github/workflows/pr-checks.yml"),
+        packagerName,
+      )
 
       if (exists(targetIgnorePath) === false) {
         warning(`  Unable to copy ${boilerplateIgnorePath} to ${targetIgnorePath}`)
@@ -587,7 +628,7 @@ module.exports = {
       const packageJsonParsed = JSON.parse(packageJsonRaw)
 
       // add in expo-router package
-      if (experimentalExpoRouter) {
+      if (expoRouter) {
         // find "expo-localization" line and append "expo-router" line after it
         packageJsonRaw = packageJsonRaw.replace(
           /"expo-localization": ".*",/g,
@@ -624,7 +665,16 @@ module.exports = {
 
       // Then write it back out.
       const packageJson = JSON.parse(packageJsonRaw)
+      if (packagerName === "yarn") packageJson.packageManager = `yarn@${YARN_VERSION}`
+      packageJson.scripts.check = ["lint", "typecheck", "test", "depcruise"]
+        .map((script) => {
+          const command = packager.runCmd(script, packagerOptions)
+          if (script !== "test") return command
+          return `${command}${packagerName === "npm" ? " --" : ""} --runInBand`
+        })
+        .join(" && ")
       write("./package.json", packageJson)
+      addOptionalModuleDependencies(toolbox, targetPath, selectedModules)
       // #endregion
 
       // #region Run Packager Install
@@ -638,32 +688,26 @@ module.exports = {
         const npmrcContents = read(npmrcPath)
         write(npmrcPath, `${npmrcContents}${EOL}node-linker=hoisted${EOL}`)
       } else if (packagerName === "yarn") {
-        const yarnVersion = await packager.run("-v", { packagerName })
-        const yarnMajorVersion = parseInt(yarnVersion.split(".")[0], 10)
-
-        // if yarn version > 1 fix .yarnrc.yml
-        if (yarnMajorVersion > 1) {
-          if (process.env.CI === "true") {
-            installFlags = " --no-immutable"
-          }
-          log(`yarn v${yarnMajorVersion} found... fixing .yarnrc.yml...`)
-          // append `nodeLinker: node-modules` to .yarnrc.yml
-          const yarnrcPath = path(targetPath, ".yarnrc.yml")
-          const yarnrcContents = read(yarnrcPath)
-          write(yarnrcPath, `${yarnrcContents ?? ""}${EOL}nodeLinker: node-modules${EOL}`)
-          // also create a blank yarn.lock file to avoid workspaces issue
-          write(path(targetPath, "yarn.lock"), "")
-          // update the `packagerManager` field in `package.json
-          await system.run(`yarn set version ${yarnVersion}`, { onProgress: log })
-        } else {
-          warning(
-            `We do not recommend using yarn v1 due to security and performance reasons. \nIf you do use yarn, we recommend using yarn v4 and making sure enableScripts is set to false in your .yarnrc.yml file.`,
-          )
+        if (process.env.CI === "true") {
+          installFlags = " --no-immutable"
         }
+        log(`Configuring Yarn ${YARN_VERSION}...`)
+        const yarnrcPath = path(targetPath, ".yarnrc.yml")
+        const yarnrcContents = read(yarnrcPath)
+        write(yarnrcPath, `${yarnrcContents ?? ""}${EOL}nodeLinker: node-modules${EOL}`)
+        // Avoid inheriting a parent workspace while setting the pinned Yarn version.
+        write(path(targetPath, "yarn.lock"), "")
+        // Bootstrap without global Yarn, then keep later commands pinned even on Classic hosts.
+        await system.run(`corepack yarn@${YARN_VERSION} set version ${YARN_VERSION} --yarn-path`, {
+          onProgress: log,
+        })
       }
 
       // check if there is a dependency cache using a hash of the package.json
-      const boilerplatePackageJsonHash = cache.hash(read(path(boilerplatePath, "package.json")))
+      const dependencyManifest = read(
+        path(selectedModules.length > 0 ? targetPath : boilerplatePath, "package.json"),
+      )
+      const boilerplatePackageJsonHash = cache.hash(dependencyManifest)
       const cachePath = path(cache.rootdir(), boilerplatePackageJsonHash, packagerName)
       const cacheExists = exists(cachePath) === "dir"
 
@@ -753,7 +797,7 @@ module.exports = {
         // Inject ignite version to app.json
         appJson.extra.ignite.version = igniteVersion
 
-        if (experimentalExpoRouter) {
+        if (expoRouter) {
           appJson.experiments.typedRoutes = true
           appJson.plugins.push("expo-router")
         }
@@ -795,7 +839,7 @@ module.exports = {
       // #endregion
 
       // #region Expo Router edits
-      if (experimentalExpoRouter) {
+      if (expoRouter) {
         const expoRouterMsg = " Recalibrating compass with Expo Router"
         startSpinner(expoRouterMsg)
 
@@ -832,11 +876,12 @@ module.exports = {
       // #endregion
 
       // #region Run Format
+      await applyOptionalModules(toolbox, targetPath, selectedModules)
       const formattingMessage = `Cleaning up`
       startSpinner(formattingMessage)
       if (installDeps === true) {
         // Make sure all our modifications are formatted nicely
-        await packager.run("lint", { ...packagerOptions })
+        await packager.run("lint:fix", { ...packagerOptions })
       } else {
         // if our linting configuration is not installed, try format
         // using prettier to make sure it's reasonably close, but this will skip
@@ -931,7 +976,10 @@ module.exports = {
           packager: packagerName,
           targetPath,
           removeDemo,
-          experimental: experimentalFlags.length > 0 ? experimentalFlags.join(",") : undefined,
+          navigation,
+          modules: selectedModules.join(",") || undefined,
+          experimental:
+            experimentalFlags.filter((flag) => flag !== "expo-router").join(",") || undefined,
           workflow,
           useCache,
           y: yname,

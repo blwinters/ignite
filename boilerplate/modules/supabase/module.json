@@ -1,0 +1,15 @@
+{
+  "name": "supabase",
+  "dependencies": {
+    "@supabase/supabase-js": "2.105.3",
+    "react-native-url-polyfill": "^4.0.0"
+  },
+  "files": [
+    { "from": "services/supabase/config.ts", "to": "services/supabase/config.ts" },
+    { "from": "services/supabase/config.test.ts", "to": "services/supabase/config.test.ts" },
+    { "from": "services/supabase/client.ts", "to": "services/supabase/client.ts" },
+    { "from": ".env.example", "to": ".env.example" },
+    { "from": "docs/supabase.md", "to": "docs/supabase.md" }
+  ],
+  "publicEnv": ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]
+}

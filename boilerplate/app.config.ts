@@ -8,6 +8,8 @@ import { ExpoConfig, ConfigContext } from "@expo/config"
  */
 import "tsx/cjs"
 
+import { getVariantConfig } from "./app/config/variants"
+
 /**
  * @param config ExpoConfig coming from the static config app.json if it exists
  *
@@ -16,11 +18,19 @@ import "tsx/cjs"
  */
 module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
   const existingPlugins = config.plugins ?? []
+  const variant = getVariantConfig(config.name, config.ios?.bundleIdentifier, config.android?.package)
+  const projectId = process.env.EAS_PROJECT_ID?.trim()
 
   return {
     ...config,
+    name: variant.name,
+    android: {
+      ...config.android,
+      ...variant.android,
+    },
     ios: {
       ...config.ios,
+      ...variant.ios,
       // This privacyManifests is to get you started.
       // See Expo's guide on apple privacy manifests here:
       // https://docs.expo.dev/guides/apple-privacy/
@@ -37,5 +47,18 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
       },
     },
     plugins: [...existingPlugins],
+    ...(projectId
+      ? {
+          extra: {
+            ...config.extra,
+            eas: { ...config.extra?.eas, projectId },
+          },
+          updates: {
+            ...config.updates,
+            url: `https://u.expo.dev/${projectId}`,
+          },
+          runtimeVersion: { policy: "appVersion" },
+        }
+      : {}),
   }
 }

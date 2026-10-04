@@ -5,23 +5,19 @@
  * See the [Backend API Integration](https://docs.infinite.red/ignite-cli/boilerplate/app/services/#backend-api-integration)
  * documentation for more details.
  */
-import {
-  ApiResponse, // @demo remove-current-line
-  ApisauceInstance,
-  create,
-} from "apisauce"
+import axios from "axios"
+import type { AxiosInstance } from "axios"
 
 import Config from "@/config"
 import type { EpisodeItem } from "@/services/api/types" // @demo remove-current-line
 
-import { GeneralApiProblem, getGeneralApiProblem } from "./apiProblem" // @demo remove-current-line
 import type {
   ApiConfig,
   ApiFeedResponse, // @demo remove-current-line
 } from "./types"
 
 /**
- * Configuring the apisauce instance.
+ * Shared Axios request configuration. Retries and caching belong to callers.
  */
 export const DEFAULT_API_CONFIG: ApiConfig = {
   url: Config.API_URL,
@@ -33,7 +29,7 @@ export const DEFAULT_API_CONFIG: ApiConfig = {
  * various requests that you need to call from your backend API.
  */
 export class Api {
-  apisauce: ApisauceInstance
+  client: AxiosInstance
   config: ApiConfig
 
   /**
@@ -41,7 +37,7 @@ export class Api {
    */
   constructor(config: ApiConfig = DEFAULT_API_CONFIG) {
     this.config = config
-    this.apisauce = create({
+    this.client = axios.create({
       baseURL: this.config.url,
       timeout: this.config.timeout,
       headers: {
@@ -54,35 +50,18 @@ export class Api {
   /**
    * Gets a list of recent React Native Radio episodes.
    */
-  async getEpisodes(): Promise<{ kind: "ok"; episodes: EpisodeItem[] } | GeneralApiProblem> {
-    // make the api call
-    const response: ApiResponse<ApiFeedResponse> = await this.apisauce.get(
+  async getEpisodes(signal?: AbortSignal): Promise<EpisodeItem[]> {
+    const response = await this.client.get<ApiFeedResponse>(
       `api.json?rss_url=https%3A%2F%2Ffeeds.simplecast.com%2FhEI_f9Dx`,
+      { signal },
     )
 
-    // the typical ways to die when calling an api
-    if (!response.ok) {
-      const problem = getGeneralApiProblem(response)
-      if (problem) return problem
+    if (!Array.isArray(response.data?.items)) {
+      throw new TypeError("Expected an episodes array in the API response")
     }
 
-    // transform the data into the format we are expecting
-    try {
-      const rawData = response.data
-
-      // This is where we transform the data into the shape we expect for our model.
-      const episodes: EpisodeItem[] =
-        rawData?.items.map((raw) => ({
-          ...raw,
-        })) ?? []
-
-      return { kind: "ok", episodes }
-    } catch (e) {
-      if (__DEV__ && e instanceof Error) {
-        console.error(`Bad data: ${e.message}\n${response.data}`, e.stack)
-      }
-      return { kind: "bad-data" }
-    }
+    // Transform response data here when your application's model differs from the API.
+    return response.data.items.map((raw) => ({ ...raw }))
   }
   // @demo remove-block-end
 }

@@ -32,7 +32,7 @@ Your new Ignite project comes with a full stack of useful libraries, pre-set up 
 - React Navigation
 - TypeScript
 - React Native MMKV (integrated with React context for restoring state)
-- apisauce (to talk to REST servers)
+- Axios (to talk to REST servers)
 - Reactotron-ready
 - Supports Expo (and Expo web) out of the box
 - About a dozen prebuilt [components](./boilerplate/app/components/Components.md) to build out your UI with

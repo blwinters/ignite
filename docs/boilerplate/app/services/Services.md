@@ -18,16 +18,16 @@ With that said, we've built large React Native apps using this pattern, and it w
 
 ## HTTP Client
 
-While React Native comes standard with a pretty good built-in `fetch` client library, it's not quite a smooth enough developer experience for us to recommend out of the box. So we include an HTTP client library called `apisauce`.
+Ignite includes [Axios](https://axios-http.com/docs/intro) for HTTP requests, with a shared API URL, a 10,000 ms timeout, and an `Accept: application/json` header.
 
-### apisauce
+### Axios
 
-Ignite comes with [apisauce](https://github.com/infinitered/apisauce), which is a lightweight wrapper around the popular [Axios](https://axios-http.com/docs/intro) HTTP client library. We maintain this library at Infinite Red and it's a pretty battle-tested, solid HTTP library.
+The API class exposes its Axios instance as `api.client`. Add API methods that resolve application data or throw on failure. Methods can accept an optional `AbortSignal` and pass it to Axios for cancellation. The transport has no automatic retries or cache; those policies belong to callers or a server-state library.
 
 ### The Api class
 
 In `./app/services/api`, you'll find the [Api class](./api.ts.md). This class is the place to add methods to call when you want to fetch data from your backend. Check out the file for examples of fetching data.
 
-### A note about React Query (aka TanStack Query)
+### Server-state caching
 
-Note that we are currently exploring [TanStack Query](https://tanstack.com/query/) for use in Ignite. We need a few more projects under our belt before we can comfortably include it with Ignite (if we do at all). However, it's a popular solution, so it's worth mentioning here.
+[TanStack Query](https://tanstack.com/query/) can call these API methods to manage caching, retries, loading state, and invalidation. Keep transport methods independent of cache policy so callers can use them with or without a query library.

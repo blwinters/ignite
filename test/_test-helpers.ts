@@ -12,6 +12,8 @@ import { stripANSI } from "../src/tools/strip-ansi"
 const IGNITE = "node " + filesystem.path(__dirname, "..", "bin", "ignite")
 const shellOpts = { stdio: "inherit" }
 
+export const YARN_FIXTURE_INSTALL = "yarn install --no-immutable --mode=skip-build"
+
 jest.setTimeout(10 * 60 * 1000)
 
 type RunOptions = {
