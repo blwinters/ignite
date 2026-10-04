@@ -10,6 +10,7 @@ import {
   ScriptTarget,
   transpileModule,
 } from "typescript"
+import { parse } from "yaml"
 
 import { spawnIgniteAndPrintIfFail } from "../_test-helpers"
 
@@ -17,6 +18,42 @@ const root = resolve(__dirname, "../../boilerplate")
 const pluginPath = join(root, "plugins/withIosDeploymentFloor.ts")
 const app = JSON.parse(readFileSync(join(root, "app.json"), "utf8"))
 const configuredFloor = "16.4"
+
+describe("Node 24 CLI runtime", () => {
+  it("selects Node 24 for nvm and every CI job", () => {
+    expect(readFileSync(resolve(root, "../.nvmrc"), "utf8").trim()).toBe("24")
+    const workflow = parse(readFileSync(resolve(root, "../.github/workflows/ci.yml"), "utf8"))
+    expect(
+      Object.values(workflow.jobs).map((job: any) =>
+        job.steps
+          .filter((step) => step.uses?.startsWith("actions/setup-node@"))
+          .map((step) => step.with["node-version"]),
+      ),
+    ).toEqual([[24], [24]])
+  })
+
+  it("accepts the Node 24 minimum and rejects older or odd CLI runtimes", () => {
+    const output = execFileSync(
+      process.execPath,
+      [
+        "-e",
+        `const semver = require("semver");
+const range = require("./package.json").engines.node;
+console.log(JSON.stringify(process.argv.slice(1).map(version => semver.satisfies(version, range))));`,
+        "20.19.4",
+        "22.13.0",
+        "23.7.0",
+        "24.2.0",
+        "24.3.0",
+        "24.21.0",
+        "25.0.0",
+        "26.0.0",
+      ],
+      { cwd: resolve(root, ".."), encoding: "utf8" },
+    )
+    expect(JSON.parse(output)).toEqual([false, false, false, false, true, true, false, false])
+  })
+})
 
 describe("SDK 57 native starter compatibility", () => {
   it.each(["expo-router", "react-navigation"])(
@@ -31,6 +68,15 @@ describe("SDK 57 native starter compatibility", () => {
         const generated = resolve(tempDir, "NativeApp")
         const pkg = JSON.parse(readFileSync(join(generated, "package.json"), "utf8"))
         const config = JSON.parse(readFileSync(join(generated, "app.json"), "utf8"))
+        expect(readFileSync(join(generated, ".nvmrc"), "utf8").trim()).toBe("24")
+        expect(pkg.engines.node).toBe("^24.3.0")
+        const workflow = parse(
+          readFileSync(join(generated, ".github/workflows/pr-checks.yml"), "utf8"),
+        )
+        expect(workflow.jobs.checks.steps).toContainEqual({
+          uses: "actions/setup-node@v4",
+          with: { "node-version": 24 },
+        })
         const properties = config.plugins.find((entry) => entry[0] === "expo-build-properties")
         const floor = config.plugins.find(
           (entry) => entry[0] === "./plugins/withIosDeploymentFloor",

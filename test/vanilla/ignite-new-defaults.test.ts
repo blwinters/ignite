@@ -52,7 +52,7 @@ describe("fork CI", () => {
       expect(job["continue-on-error"]).toBeUndefined()
       expect(job.steps).toContainEqual({
         uses: "actions/setup-node@v4",
-        with: { "node-version": 20 },
+        with: { "node-version": 24 },
       })
       for (const step of job.steps) {
         expect(step["continue-on-error"]).toBeUndefined()

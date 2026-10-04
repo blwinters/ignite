@@ -6,11 +6,14 @@ directory layout, generated-file boundaries, and environment safety, and
 
 ## Setup
 
-Use Node.js 20 or newer. The default package manager is Yarn 4.9.1, pinned in
+Use Node.js 24 (24.3.0 or newer within that major). `.nvmrc` and CI select Node 24.
+The default package manager is Yarn 4.9.1, pinned in
 `package.json` and the project's local Yarn release. Enable Corepack before using
 Yarn; if Corepack is missing, install it with `npm install --global corepack`.
 
 ```bash
+nvm install
+nvm use
 corepack enable
 yarn --version
 ```

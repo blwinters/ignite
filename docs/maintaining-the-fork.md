@@ -34,13 +34,15 @@ automation belong in generated apps, not this fork.
   [optional-module catalog](../boilerplate/docs/optional-modules.md).
 - Supabase config accepts public client values only, rejects privileged keys and
   unsafe URLs, and initializes its client only when requested. Its pinned SDK
-  supports Node 20. Authentication UI, persistent sessions, backend policies,
+  supports the fork's Node 24 runtime. Authentication UI, persistent sessions, backend policies,
   and application queries remain app responsibilities.
 
-Use Node 20 (20.19 or newer within that major) and Corepack for the supported CI
+Use Node 24 (24.3.0 or newer within that major) and Corepack for the supported CI
 environment. From a fork checkout:
 
 ```sh
+nvm install
+nvm use
 corepack enable
 corepack prepare pnpm@10.9.0 --activate
 corepack prepare yarn@4.9.1 --activate
@@ -105,7 +107,7 @@ deployment, and store submission are separate decisions, not sync steps.
 - [ ] Review environment ignores, public versus server-only keys, config URL/key
       validation, and lazy client creation. Never copy credentials or account
       identifiers into the fork or generated examples.
-- [ ] Review Expo/React Native and SDK upgrades against Node 20, native builds,
+- [ ] Review Expo/React Native and SDK upgrades against Node 24, native builds,
       EAS variants, and parameterized project linking. Do not equate EAS config
       with an installed OTA runtime or verified deployment.
 - [ ] Preserve upstream attribution and trademark notices. Keep app-specific
@@ -133,7 +135,7 @@ git diff --check
 full test command has no path or name filters: the installed React Navigation
 integration test remains part of the normal suite.
 
-Root [GitHub CI](../.github/workflows/ci.yml) provisions Node 20, pnpm, Yarn, and
+Root [GitHub CI](../.github/workflows/ci.yml) provisions Node 24, pnpm, Yarn, and
 Bun using public actions and read-only repository permissions. A serial fixture
 matrix validates default Expo Router + Yarn, React Navigation + Yarn, Expo
 Router + Yarn + Supabase, Query with each navigation choice, and combined
