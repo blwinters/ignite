@@ -19,6 +19,7 @@ removing file /user/home/ignite/app/navigators/DemoNavigator.tsx
 removing file /user/home/ignite/app/screens/DemoCommunityScreen.tsx
 removing file /user/home/ignite/app/screens/DemoDebugScreen.tsx
 removing file /user/home/ignite/app/screens/DemoPodcastListScreen.tsx
+removing file /user/home/ignite/app/screens/DemoScreens.test.tsx
 removing file /user/home/ignite/app/screens/DemoShowroomScreen/DemoDivider.tsx
 removing file /user/home/ignite/app/screens/DemoShowroomScreen/DemoShowroomScreen.tsx
 removing file /user/home/ignite/app/screens/DemoShowroomScreen/DemoUseCase.tsx
@@ -63,6 +64,7 @@ removing file /user/home/ignite/app/services/api/index.test.ts
    Found 'remove-file' in /user/home/ignite/app/screens/DemoCommunityScreen.tsx
    Found 'remove-file' in /user/home/ignite/app/screens/DemoDebugScreen.tsx
    Found 'remove-file' in /user/home/ignite/app/screens/DemoPodcastListScreen.tsx
+   Found 'remove-file' in /user/home/ignite/app/screens/DemoScreens.test.tsx
    Found 'remove-file' in /user/home/ignite/app/screens/DemoShowroomScreen/DemoDivider.tsx
    Found 'remove-file' in /user/home/ignite/app/screens/DemoShowroomScreen/demos/DemoAutoImage.tsx
    Found 'remove-file' in /user/home/ignite/app/screens/DemoShowroomScreen/demos/DemoButton.tsx
