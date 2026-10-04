@@ -147,18 +147,20 @@ const EpisodeCard = ({
 
   const liked = useSharedValue(isFavorite ? 1 : 0)
   const imageUri = useMemo<ImageSourcePropType>(() => {
-    return rnrImages[Math.floor(Math.random() * rnrImages.length)]
-  }, [])
+    // Keep an episode's thumbnail stable when list virtualization remounts its card.
+    const index = Array.from(episode.guid).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    return rnrImages[index % rnrImages.length]
+  }, [episode.guid])
 
   // Grey heart
   const animatedLikeButtonStyles = useAnimatedStyle(() => {
     return {
       transform: [
         {
-          scale: interpolate(liked.value, [0, 1], [1, 0], Extrapolation.EXTEND),
+          scale: interpolate(liked.get(), [0, 1], [1, 0], Extrapolation.EXTEND),
         },
       ],
-      opacity: interpolate(liked.value, [0, 1], [1, 0], Extrapolation.CLAMP),
+      opacity: interpolate(liked.get(), [0, 1], [1, 0], Extrapolation.CLAMP),
     }
   })
 
@@ -167,16 +169,16 @@ const EpisodeCard = ({
     return {
       transform: [
         {
-          scale: liked.value,
+          scale: liked.get(),
         },
       ],
-      opacity: liked.value,
+      opacity: liked.get(),
     }
   })
 
   const handlePressFavorite = useCallback(() => {
     onPressFavorite()
-    liked.value = withSpring(liked.value ? 0 : 1)
+    liked.set(withSpring(liked.get() ? 0 : 1))
   }, [liked, onPressFavorite])
 
   /**

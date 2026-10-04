@@ -68,6 +68,15 @@ describe("SDK 57 native starter compatibility", () => {
         const generated = resolve(tempDir, "NativeApp")
         const pkg = JSON.parse(readFileSync(join(generated, "package.json"), "utf8"))
         const config = JSON.parse(readFileSync(join(generated, "app.json"), "utf8"))
+        const eas = JSON.parse(readFileSync(join(generated, "eas.json"), "utf8"))
+        for (const profile of [
+          "development-simulator",
+          "development-device",
+          "preview",
+          "production",
+        ]) {
+          expect(eas.build[profile]).toMatchObject({ node: "24.21.0", corepack: true })
+        }
         expect(readFileSync(join(generated, ".nvmrc"), "utf8").trim()).toBe("24")
         expect(pkg.engines.node).toBe("^24.3.0")
         const workflow = parse(

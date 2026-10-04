@@ -411,7 +411,7 @@ describe("ignite new defaults", () => {
     expect(workflow.on).toHaveProperty("pull_request")
     const steps = workflow.jobs.checks.steps
     expect(steps).toContainEqual({ uses: "actions/checkout@v4" })
-    expect(steps).toContainEqual({ uses: "actions/setup-node@v4", with: { "node-version": 20 } })
+    expect(steps).toContainEqual({ uses: "actions/setup-node@v4", with: { "node-version": 24 } })
     expect(steps).toContainEqual({ name: "Install dependencies", run: install })
     expect(steps).toContainEqual({ name: "Run checks", run: check })
     for (const step of steps.filter((step) => step.uses)) {
@@ -462,6 +462,8 @@ describe("ignite new defaults", () => {
         ["production", "production"],
       ]) {
         expect(build[profile]).toMatchObject({
+          node: "24.21.0",
+          corepack: true,
           environment: variant,
           channel: variant,
           env: { APP_VARIANT: variant },
@@ -493,7 +495,7 @@ describe("ignite new defaults", () => {
 
       await system.run(`cd ${appPath} && ${YARN_FIXTURE_INSTALL}`)
       const typecheck = await spawnAndLog(
-        "yarn tsc --noEmit --strict --skipLibCheck --module commonjs --target es2022 app.config.ts",
+        "yarn tsc --ignoreConfig --noEmit --strict --skipLibCheck --types node --module commonjs --target es2022 app.config.ts",
         {
           pre: `cd ${appPath}`,
           outputFileName: `ignite-new-variants-typecheck-${navigation}.txt`,

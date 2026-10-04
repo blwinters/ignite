@@ -4,6 +4,8 @@
   },
   "build": {
     "development-simulator": {
+      "node": "24.21.0",
+      "corepack": true,
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
@@ -16,6 +18,8 @@
       }
     },
     "development-device": {
+      "node": "24.21.0",
+      "corepack": true,
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
@@ -28,6 +32,8 @@
       }
     },
     "preview": {
+      "node": "24.21.0",
+      "corepack": true,
       "distribution": "internal",
       "environment": "preview",
       "channel": "preview",
@@ -37,6 +43,8 @@
       "android": { "buildType": "apk" }
     },
     "production": {
+      "node": "24.21.0",
+      "corepack": true,
       "environment": "production",
       "channel": "production",
       "env": {
