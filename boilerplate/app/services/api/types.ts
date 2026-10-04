@@ -35,7 +35,7 @@ export interface ApiFeedResponse {
 }
 
 /**
- * The options used to configure apisauce.
+ * The options used to configure Axios.
  */
 export interface ApiConfig {
   /**

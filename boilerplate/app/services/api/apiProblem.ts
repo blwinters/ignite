@@ -1,4 +1,4 @@
-import { ApiResponse } from "apisauce"
+import axios from "axios"
 
 export type GeneralApiProblem =
   /**
@@ -39,24 +39,26 @@ export type GeneralApiProblem =
   | { kind: "bad-data" }
 
 /**
- * Attempts to get a common cause of problems from an api response.
+ * Optionally classifies rejected requests for display. API methods still throw errors.
  *
- * @param response The api response.
+ * Cancellation is not a user-facing failure.
  */
-export function getGeneralApiProblem(response: ApiResponse<any>): GeneralApiProblem | null {
-  switch (response.problem) {
-    case "CONNECTION_ERROR":
-      return { kind: "cannot-connect", temporary: true }
-    case "NETWORK_ERROR":
-      return { kind: "cannot-connect", temporary: true }
-    case "TIMEOUT_ERROR":
+export function getGeneralApiProblem(error: unknown): GeneralApiProblem | null {
+  if (axios.isCancel(error) || (error instanceof Error && error.name === "AbortError")) {
+    return null
+  }
+
+  if (axios.isAxiosError(error)) {
+    if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
       return { kind: "timeout", temporary: true }
-    case "SERVER_ERROR":
+    }
+
+    const status = error.response?.status
+    if (status !== undefined && status >= 500 && status < 600) {
       return { kind: "server" }
-    case "UNKNOWN_ERROR":
-      return { kind: "unknown", temporary: true }
-    case "CLIENT_ERROR":
-      switch (response.status) {
+    }
+    if (status !== undefined && status >= 400 && status < 500) {
+      switch (status) {
         case 401:
           return { kind: "unauthorized" }
         case 403:
@@ -66,9 +68,20 @@ export function getGeneralApiProblem(response: ApiResponse<any>): GeneralApiProb
         default:
           return { kind: "rejected" }
       }
-    case "CANCEL_ERROR":
-      return null
+    }
+
+    if (
+      error.code === "ERR_NETWORK" ||
+      error.code === "ECONNREFUSED" ||
+      error.code === "ECONNRESET" ||
+      error.code === "ENOTFOUND" ||
+      (!error.response && error.request)
+    ) {
+      return { kind: "cannot-connect", temporary: true }
+    }
+  } else if (error instanceof TypeError) {
+    return { kind: "bad-data" }
   }
 
-  return null
+  return { kind: "unknown", temporary: true }
 }
