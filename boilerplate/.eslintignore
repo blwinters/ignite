@@ -2,6 +2,7 @@ node_modules
 ios
 android
 .expo
+expo-env.d.ts
 .vscode
 ignite/ignite.json
 package.json

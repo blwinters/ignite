@@ -8,6 +8,26 @@ const pluginPath = join(root, "plugins/withIosDeploymentFloor.ts")
 const app = JSON.parse(readFileSync(join(root, "app.json"), "utf8"))
 const configuredFloor = "16.0"
 
+describe("Expo lint exclusions", () => {
+  it.each([
+    ["expo-env.d.ts", true],
+    ["app/services/api/types.ts", false],
+  ])("reports %s ignored as %s using the app ESLint configuration", (file, ignored) => {
+    const output = execFileSync(
+      process.execPath,
+      [
+        "-e",
+        `const { ESLint } = require("eslint");
+new ESLint({ cwd: process.cwd() }).isPathIgnored(process.argv[1])
+  .then((ignored) => console.log(JSON.stringify(ignored)));`,
+        file,
+      ],
+      { cwd: root, encoding: "utf8" },
+    )
+    expect(JSON.parse(output)).toBe(ignored)
+  })
+})
+
 // Exercise the template without installing native dependencies. Only Expo's mod
 // registration boundary is supplied; the plugin and emitted Ruby run unchanged.
 function loadPlugin() {
