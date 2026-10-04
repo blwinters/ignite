@@ -36,6 +36,7 @@ describe.each(["expo-router", "react-navigation"])("generated %s OTA support", (
   let baseConfig: any
   let pkg: any
   let eas: any
+  let toolsBin: string
 
   beforeAll(async () => {
     tempDir = tempy.directory({ prefix: "ignite-ota-" })
@@ -47,6 +48,24 @@ describe.each(["expo-router", "react-navigation"])("generated %s OTA support", (
     baseConfig = JSON.parse(readFileSync(join(appPath, "app.json"), "utf8"))
     pkg = JSON.parse(readFileSync(join(appPath, "package.json"), "utf8"))
     eas = JSON.parse(readFileSync(join(appPath, "eas.json"), "utf8"))
+    const toolsPath = join(tempDir, "command-tools")
+    toolsBin = join(toolsPath, "node_modules", ".bin")
+    if (pkg.devDependencies["cross-env"]) {
+      filesystem.dir(toolsPath)
+      filesystem.write(join(toolsPath, "package.json"), {
+        private: true,
+        devDependencies: { "cross-env": pkg.devDependencies["cross-env"] },
+      })
+      execFileSync(
+        "npm",
+        ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false"],
+        {
+          cwd: toolsPath,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      )
+    }
   })
 
   afterAll(() => filesystem.remove(tempDir))
@@ -168,7 +187,7 @@ describe.each(["expo-router", "react-navigation"])("generated %s OTA support", (
           env: {
             ...process.env,
             APP_VARIANT: "conflicting-parent-value",
-            PATH: `${tempDir}:${process.env.PATH}`,
+            PATH: `${toolsBin}:${tempDir}:${process.env.PATH}`,
           },
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
@@ -186,6 +205,43 @@ describe.each(["expo-router", "react-navigation"])("generated %s OTA support", (
           "all",
           "--message",
           "Test-only CLI boundary",
+        ],
+      })
+    },
+  )
+
+  it.each(["development", "preview", "production"])(
+    "sets %s and forwards arguments without POSIX shell assignment support",
+    (channel) => {
+      const executable = join(tempDir, "eas")
+      writeFileSync(
+        executable,
+        `#!${process.execPath}\nconsole.log(JSON.stringify({ args: process.argv.slice(2), variant: process.env.APP_VARIANT }));\n`,
+      )
+      chmodSync(executable, 0o700)
+      const [command, ...args] = pkg.scripts[`update:${channel}`].split(" ")
+      const output = execFileSync(command, [...args, "--message", "Message with spaces"], {
+        cwd: appPath,
+        env: {
+          ...process.env,
+          APP_VARIANT: "conflicting-parent-value",
+          PATH: `${toolsBin}:${tempDir}:${process.env.PATH}`,
+        },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      expect(JSON.parse(output)).toEqual({
+        variant: channel,
+        args: [
+          "update",
+          "--channel",
+          channel,
+          "--environment",
+          channel,
+          "--platform",
+          "all",
+          "--message",
+          "Message with spaces",
         ],
       })
     },
