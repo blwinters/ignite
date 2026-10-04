@@ -72,9 +72,13 @@ function wireEntryProvider(
     throw new Error(`Cannot wire ${provider.name}: app entry has no root SafeAreaProvider`)
   }
   const prefix = entry === routerEntry ? "../../" : "../"
+  const finalImport = source.match(/^import .+ from .+$/gm)?.pop()
+  if (!finalImport) throw new Error(`Cannot wire ${provider.name}: app entry has no imports`)
+  // Keep native startup side-effect imports first. Router aliases and relative
+  // imports are separate groups; React Navigation's sibling/parent group is shared.
   source = source.replace(
-    /^import /m,
-    `import { ${provider.name} } from "${prefix}${provider.file}"\n\nimport `,
+    finalImport,
+    `${finalImport}\n${entry === routerEntry ? "\n" : ""}import { ${provider.name} } from "${prefix}${provider.file}"`,
   )
   source = source.replace("<SafeAreaProvider", `<${provider.name}>\n    <SafeAreaProvider`)
   source = source.replace("</SafeAreaProvider>", `</SafeAreaProvider>\n    </${provider.name}>`)

@@ -43,6 +43,22 @@ describe("ignite new optional Query module", () => {
     }
     expect(filesystem.exists(`${appPath}/modules`)).toBe(false)
     const entry = `${appPath}/${navigation === "expo-router" ? "src/app/_layout.tsx" : "app/app.tsx"}`
+    const { ESLint } = require("eslint")
+    const eslint = new ESLint({
+      cwd: appPath,
+      useEslintrc: false,
+      overrideConfigFile: resolve(__dirname, "../../boilerplate/.eslintrc.js"),
+      // Supply the generated package's actual React version without a native install.
+      overrideConfig: { settings: { react: { version: pkg.dependencies.react } } },
+      fix: true,
+    })
+    // Match the hosted initial lint:fix phase without installing native dependencies
+    // or changing files. Assert this rule's results without disabling any lint rules.
+    const lintResults = await eslint.lintFiles([entry])
+    const importErrors = lintResults.flatMap((result) =>
+      result.messages.filter((message) => message.ruleId === "import/order"),
+    )
+    expect(importErrors).toEqual([])
     const ast = createSourceFile(entry, filesystem.read(entry), ScriptTarget.Latest, true)
     const imports: string[] = []
     let providers = 0
