@@ -13,7 +13,7 @@ Just like any React Native project, you can open this folder in Xcode and run yo
 
 ## Deployment minimum
 
-New apps default to iOS 16.0. The existing `expo-build-properties` plugin sets the app deployment target, and `plugins/withIosDeploymentFloor.ts` raises pod and resource-bundle deployment targets below that floor after React Native's post-install setup. Higher targets required by dependencies are preserved. The marked Podfile block is updated rather than duplicated on repeated prebuilds; a changed or missing React Native anchor fails clearly.
+New apps use stable Expo SDK 57 (`expo@57.0.26`, React Native `0.86.3`) and default to iOS 16.4, the SDK minimum. The existing `expo-build-properties` plugin sets the app deployment target, and `plugins/withIosDeploymentFloor.ts` raises pod and resource-bundle deployment targets below that floor after React Native's post-install setup. Higher targets required by dependencies are preserved. The marked Podfile block is updated rather than duplicated on repeated prebuilds; a changed or missing React Native anchor fails clearly.
 
 Keep the `ios.deploymentTarget` option for `expo-build-properties` and the `deploymentTarget` option for `./plugins/withIosDeploymentFloor` in `app.json` equal when changing the minimum. Apply lasting native changes through Expo configuration or config plugins. Regenerate an existing project without deleting its native caches, then install pods:
 
@@ -23,6 +23,23 @@ APP_VARIANT=development pnpm exec expo prebuild --platform ios --no-install
 ```
 
 Use your generated app's package manager in place of `pnpm` if different. Build without an `IPHONEOS_DEPLOYMENT_TARGET` command-line override to verify the persisted floor.
+
+## iOS 27 scene support
+
+SDK 57 keeps the application lifecycle by default. Apps built with Xcode 27 need scenes to launch on iOS 27, so the starter enables `ios.enableSceneSupport: true` in `expo-build-properties`. Expo must be at least `57.0.23`; the pinned `57.0.26` and build-properties `~57.0.22` provide the supported opt-in. Both navigation choices retain Android and web support. See Expo's [scene lifecycle guide](https://github.com/expo/fyi/blob/main/ios-scene-lifecycle.md).
+
+For the first native regeneration after upgrading from an older SDK, inspect `ios/` for handwritten changes and preserve the complete native tree and local `.expo/` caches in an explicit backup outside the project. Moving them into a uniquely named backup on the same volume preserves build caches without duplicating them. Keep that backup until the replacement is verified, then generate a fresh template:
+
+```sh
+APP_VARIANT=development pnpm exec expo prebuild --clean --platform ios --no-install
+(cd ios && pod install)
+```
+
+The SDK 57 plugin makes `AppDelegate` conform to `ExpoReactNativeFactoryProvider`, removes its legacy React Native startup block, and adds a scene manifest using Expo's built-in `EXExpoAppSceneDelegate`. It does not generate `SceneDelegate.swift` on SDK 57. Do not patch generated Swift or installed dependencies to bypass this plugin. A manually maintained AppDelegate or existing scene manifest may require the guide's manual migration; the plugin refuses incompatible templates.
+
+Verify launch on iOS 27 without a deployment-target override, route-file edits with the aligned SDK 57 CLI/Router watcher, cold and warm URL delivery, and foreground/background transitions. Static checks do not establish native lifecycle behavior. SDK-managed packages follow the published Expo compatibility map; the matching React Native Jest preset and Metro configuration packages are required peers for Jest and Worklets. Use Node 20.19.4+, 22.13+, or a newer version accepted by the generated package's engine range.
+
+Router apps use `expo-router/react-navigation` for navigation themes and hooks, following the [SDK 56+ import migration](https://docs.expo.dev/router/migrate/sdk-55-to-56/). The generator converts those imports only for the Router choice; React Navigation apps keep the external packages. TypeScript `~6.0.3` requires explicit Jest/Node globals and relative aliases without deprecated `baseUrl`. `react-i18next@17.0.15` with `i18next@26.4.2` accepts the compiler version, resolving the npm peer conflict from the previous i18n packages. The starter includes a test of real locale initialization and Spanish/English switching.
 
 ## Device Hub and localhost fallback
 

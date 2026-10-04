@@ -407,6 +407,21 @@ export function cleanupExpoRouterConversion(toolbox: GluegunToolbox, targetPath:
   workingDir.remove(workingDir.path("ignite", "templates", "navigator"))
   workingDir.remove(workingDir.path("src", "navigators"))
   workingDir.remove("app")
+
+  // SDK 56+ Router owns these navigation APIs; the React Navigation starter
+  // keeps its original imports because only the Router conversion runs here.
+  for (const file of [
+    "src/theme/context.tsx",
+    "src/components/Screen.tsx",
+    "src/utils/useHeader.tsx",
+    "src/components/Text.test.tsx",
+  ]) {
+    const contents = workingDir.read(file)
+    workingDir.write(
+      file,
+      contents.replace(/@react-navigation\/native/g, "expo-router/react-navigation"),
+    )
+  }
 }
 
 export function updatePackagerCommandsInReadme(readmePath: string, packagerName: PackagerName) {
