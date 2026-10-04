@@ -1,5 +1,6 @@
 import * as ejs from "ejs"
 import { filesystem, GluegunToolbox, GluegunPatchingPatchOptions, patching, strings } from "gluegun"
+import * as prettier from "prettier"
 import * as sharp from "sharp"
 import * as YAML from "yaml"
 
@@ -213,6 +214,7 @@ type Patch = GluegunPatchingPatchOptions & {
  * Handles patching files via front matter config
  */
 async function handlePatches(data: { patches?: Patch[]; patch?: Patch }) {
+  const patched: string[] = []
   const patches = data.patches ?? []
   if (data.patch) patches.push(data.patch)
   for (const patch of patches) {
@@ -228,8 +230,22 @@ async function handlePatches(data: { patches?: Patch[]; patch?: Patch }) {
         await patching.replace(patchPath, patchOpts.replace, patchOpts.insert)
       }
       await patching.patch(patchPath, patchOpts)
+      patched.push(patchPath)
     }
   }
+  return patched
+}
+
+async function formatGeneratedFile(filepath: string) {
+  const { ignored, inferredParser } = await prettier.getFileInfo(filepath, {
+    ignorePath: filesystem.path(cwd(), ".prettierignore"),
+  })
+  if (ignored || !inferredParser) return
+
+  const config = await prettier.resolveConfig(filepath)
+  const content = filesystem.read(filepath)
+  if (content === undefined) return
+  filesystem.write(filepath, await prettier.format(content, { ...config, filepath }))
 }
 
 /**
@@ -274,6 +290,7 @@ export async function generateFromTemplate(
   const written: string[] = []
   const overwritten: string[] = []
   const exists: string[] = []
+  const patched: string[] = []
 
   // passed into the template generator
   const props = { camelCaseName, kebabCaseName, pascalCaseName, snakeCaseName, ...options }
@@ -342,7 +359,7 @@ export async function generateFromTemplate(
 
     // apply any provided patches
     const isFileExist = filesystem.exists(destinationPath)
-    if (!isFileExist) await handlePatches(frontMatterData)
+    if (!isFileExist) patched.push(...(await handlePatches(frontMatterData)))
 
     // ensure destination folder exists
     dir(destinationDir)
@@ -359,6 +376,9 @@ export async function generateFromTemplate(
       filesystem.write(destinationPath, content)
       written.push(destinationPath)
     }
+  }
+  for (const filepath of new Set([...written, ...overwritten, ...patched])) {
+    await formatGeneratedFile(filepath)
   }
   return { written, exists, overwritten }
 }
