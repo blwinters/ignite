@@ -65,6 +65,12 @@ jobs:
             flags: --navigation=react-navigation
           - name: supabase
             flags: --modules=supabase
+          - name: tanstack-query
+            flags: --modules=tanstack-query
+          - name: tanstack-query-react-navigation
+            flags: --modules=tanstack-query --navigation=react-navigation
+          - name: supabase-query
+            flags: --modules=supabase,tanstack-query
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

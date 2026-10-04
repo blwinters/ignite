@@ -41,6 +41,12 @@ describe("fork CI", () => {
       { name: "default", flags: "" },
       { name: "react-navigation", flags: "--navigation=react-navigation" },
       { name: "supabase", flags: "--modules=supabase" },
+      { name: "tanstack-query", flags: "--modules=tanstack-query" },
+      {
+        name: "tanstack-query-react-navigation",
+        flags: "--modules=tanstack-query --navigation=react-navigation",
+      },
+      { name: "supabase-query", flags: "--modules=supabase,tanstack-query" },
     ])
     for (const job of Object.values(workflow.jobs) as any[]) {
       expect(job["continue-on-error"]).toBeUndefined()
@@ -369,6 +375,7 @@ describe("ignite new defaults", () => {
         )
       for (const [module, status] of [
         ["Supabase", "available"],
+        ["TanStack Query", "available"],
         ["Firebase", "planned"],
         ["Clerk", "planned"],
         ["WatermelonDB", "planned"],

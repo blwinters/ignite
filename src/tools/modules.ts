@@ -1,15 +1,16 @@
 import { GluegunToolbox } from "gluegun"
 
-export type OptionalModuleName = "supabase"
+export type OptionalModuleName = "supabase" | "tanstack-query"
 
 export type ModuleDescriptor = {
   name: OptionalModuleName
   dependencies: Record<string, string>
   files: Array<{ from: string; to: string }>
   publicEnv: string[]
+  entryProvider?: { name: string; file: string }
 }
 
-export const availableOptionalModules: OptionalModuleName[] = ["supabase"]
+export const availableOptionalModules: OptionalModuleName[] = ["supabase", "tanstack-query"]
 
 function readModule(context: GluegunToolbox, name: OptionalModuleName) {
   const modulePath = context.filesystem.path(`${context.meta.src}`, "../boilerplate/modules", name)
@@ -28,7 +29,7 @@ export function parseOptionalModules(raw?: string): OptionalModuleName[] {
     .filter(Boolean)) {
     if (!availableOptionalModules.includes(name as OptionalModuleName)) {
       throw new Error(
-        `Unknown or unavailable optional module "${name}". Available modules: supabase. Planned modules are not installable; see docs/optional-modules.md.`,
+        `Unknown or unavailable optional module "${name}". Available modules: ${availableOptionalModules.join(", ")}. Planned modules are not installable; see docs/optional-modules.md.`,
       )
     }
     if (!selected.includes(name as OptionalModuleName)) selected.push(name as OptionalModuleName)
@@ -46,11 +47,38 @@ export function addOptionalModuleDependencies(
   if (selected.length === 0) return
   const packagePath = context.filesystem.path(targetPath, "package.json")
   const packageJson = context.filesystem.read(packagePath, "json")
-  for (const name of selected) {
+  // A dependency cache must not depend on the order modules were selected.
+  for (const name of [...selected].sort()) {
     const { descriptor } = readModule(context, name)
     packageJson.dependencies = { ...packageJson.dependencies, ...descriptor.dependencies }
   }
   context.filesystem.write(packagePath, packageJson)
+}
+
+function wireEntryProvider(
+  context: GluegunToolbox,
+  targetPath: string,
+  provider: NonNullable<ModuleDescriptor["entryProvider"]>,
+) {
+  const { filesystem } = context
+  const routerEntry = filesystem.path(targetPath, "src/app/_layout.tsx")
+  const entry = filesystem.exists(routerEntry)
+    ? routerEntry
+    : filesystem.path(targetPath, "app/app.tsx")
+  let source = filesystem.read(entry)
+  if (!source) throw new Error(`Cannot wire ${provider.name}: app entry was not found`)
+  if (source.includes(`<${provider.name}>`)) return
+  if (!source.includes("<SafeAreaProvider") || !source.includes("</SafeAreaProvider>")) {
+    throw new Error(`Cannot wire ${provider.name}: app entry has no root SafeAreaProvider`)
+  }
+  const prefix = entry === routerEntry ? "../../" : "../"
+  source = source.replace(
+    /^import /m,
+    `import { ${provider.name} } from "${prefix}${provider.file}"\n\nimport `,
+  )
+  source = source.replace("<SafeAreaProvider", `<${provider.name}>\n    <SafeAreaProvider`)
+  source = source.replace("</SafeAreaProvider>", `</SafeAreaProvider>\n    </${provider.name}>`)
+  filesystem.write(entry, source)
 }
 
 export async function applyOptionalModules(
@@ -69,6 +97,7 @@ export async function applyOptionalModules(
     for (const file of descriptor.files) {
       await copyAsync(path(modulePath, "files", file.from), path(targetPath, file.to))
     }
+    if (descriptor.entryProvider) wireEntryProvider(context, targetPath, descriptor.entryProvider)
   }
   const ignorePath = path(targetPath, ".gitignore")
   write(

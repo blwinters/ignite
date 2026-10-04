@@ -46,7 +46,9 @@ This fork keeps Ignite's identity and upstream foundations, with a small set of
 customized defaults. See [Maintaining the fork](./docs/maintaining-the-fork.md) for
 the differences, local usage, upstream sync, and validation. The generated app's
 [optional-module catalog](./boilerplate/docs/optional-modules.md) explains the
-available Supabase integration and planned modules. The `npx ignite-cli@latest`
+available Supabase and TanStack Query integrations and planned modules. Select
+`--modules=tanstack-query` or `--modules=supabase,tanstack-query` to opt in; no
+module is enabled by default. The `npx ignite-cli@latest`
 commands below install the upstream release; use the fork checkout to try these defaults.
 
 ## Tech Stack

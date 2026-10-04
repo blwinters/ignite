@@ -5,14 +5,18 @@ service. `available` means a supported opt-in integration; it is not enabled by
 default. `planned` means a design direction, not an installable or functioning
 choice. Do not treat planned modules as working generator options.
 
-Select Supabase during interactive generation, or pass `--modules=supabase`.
+Select Supabase or TanStack Query during interactive generation, or pass
+`--modules=supabase`, `--modules=tanstack-query`, or
+`--modules=supabase,tanstack-query` for both.
 The interactive selection starts empty, and `--yes` installs no optional modules
 unless you supply `--modules`. Selected Supabase projects include setup guidance
-at `docs/supabase.md`; the base app includes no backend client or environment example.
+at `docs/supabase.md`; selected Query projects include `docs/query.md` and an
+automatically wired provider. The base app includes neither integration.
 
 | Module                 | Status    | Intended responsibility                                                                 | Installer security or native-build concern                                                                                                                                                                                                                                  |
 | ---------------------- | --------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Supabase               | available | Hosted authentication, Postgres data, and storage through an opt-in client integration. | Use only a public URL and publishable key in the client. Service-role credentials are server-only and must never appear in client code or client environment files. Enforce row-level security, review session storage, and configure redirect URLs for the app's variants. |
+| TanStack Query         | available | Server-data caching, query lifecycle, retries, and invalidation for Axios or Supabase.  | Cache is memory-only. Scope private keys by account, cancel queries and clear cache on identity changes, and keep credentials out of cached data. Expo Network requires an appropriate native development build.                                                            |
 | Firebase               | planned   | Analytics, Crashlytics, and messaging.                                                  | Review data collection, privacy disclosures, consent, and notification permissions. Register each variant, handle native configuration files and config plugins, and require a new native build. Keep admin and messaging-provider credentials server-only.                 |
 | Clerk                  | planned   | Hosted user identity, sign-in, and session management.                                  | Expose only publishable keys, keep secret keys server-side, use secure token storage, and configure OAuth/deep-link redirects for each variant. Review native dependencies and rebuild requirements.                                                                        |
 | WatermelonDB           | planned   | Local persistent data and offline synchronization.                                      | Configure its native database adapter and Expo config plugin or documented native setup, require a new native build, and define migrations and authenticated sync with conflict handling. Review sensitive local data storage and access controls.                          |

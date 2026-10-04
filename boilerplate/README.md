@@ -102,7 +102,9 @@ Validate native behavior on a simulator or device separately.
 
 ## Optional integrations
 
-[Optional modules](docs/optional-modules.md) lists Supabase as available and the
-other integrations as planned. No backend or identity provider is required by
+[Optional modules](docs/optional-modules.md) lists Supabase and TanStack Query as
+available and the other integrations as planned. Select `--modules=tanstack-query`
+for query caching or `--modules=supabase,tanstack-query` for both. No optional
+module is selected by default. No backend or identity provider is required by
 the base app. Keep local environment values out of Git; client-visible
 `EXPO_PUBLIC_*` values must contain only public configuration, never secrets.

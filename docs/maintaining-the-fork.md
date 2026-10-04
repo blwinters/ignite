@@ -26,7 +26,10 @@ automation belong in generated apps, not this fork.
 - Optional modules use a descriptor contract. Interactive selection starts empty;
   `--yes` selects none. `--modules=supabase` adds only that module's dependencies,
   service/config tests, placeholder environment example, and setup/removal guide.
-  Supabase is available; Firebase, Clerk, WatermelonDB, and RevenueCat/purchases
+  `--modules=tanstack-query` adds an in-memory server-data cache with native
+  focus/connectivity support and wraps either navigation entry. Use
+  `--modules=supabase,tanstack-query` for both. Supabase and TanStack Query are
+  available; Firebase, Clerk, WatermelonDB, and RevenueCat/purchases
   are planned and cannot be installed. See the
   [optional-module catalog](../boilerplate/docs/optional-modules.md).
 - Supabase config accepts public client values only, rejects privileged keys and
@@ -132,15 +135,18 @@ integration test remains part of the normal suite.
 
 Root [GitHub CI](../.github/workflows/ci.yml) provisions Node 20, pnpm, Yarn, and
 Bun using public actions and read-only repository permissions. A serial fixture
-matrix validates default Expo Router + Yarn, React Navigation + Yarn, and Expo
-Router + Yarn + Supabase. Each gets a fresh runner, and a failed variant does not
+matrix validates default Expo Router + Yarn, React Navigation + Yarn, Expo
+Router + Yarn + Supabase, Query with each navigation choice, and combined
+Supabase/Query. Each gets a fresh runner, and a failed variant does not
 cancel the others. Fixture jobs are independent of the root suite, so a root
 failure still leaves all generated-app results visible.
 
 To reproduce the fixture strategy locally, create one disposable directory outside
 the checkout per variant, run the checkout CLI there, then remove only that
 fixture after preserving its logs. Substitute `--navigation=react-navigation` or
-`--modules=supabase` at the end for the other two variants:
+`--modules=supabase`, `--modules=tanstack-query`,
+`--modules=tanstack-query --navigation=react-navigation`, or
+`--modules=supabase,tanstack-query` at the end for the other variants:
 
 ```sh
 node /path/to/ignite/bin/ignite new FixtureApp --yes --install-deps=false --git=false --use-cache=false

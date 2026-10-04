@@ -50,7 +50,7 @@ describe("ignite new optional Supabase module", () => {
     filesystem.remove(tempDir)
   })
 
-  it("offers only Supabase in an interactive multiselect with no default selection", async () => {
+  it("offers available modules in an interactive multiselect with no default selection", async () => {
     jest.spyOn(packager, "availablePackagers").mockReturnValue(["npm"])
     jest.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("Exited without a module selection prompt")
@@ -89,7 +89,7 @@ describe("ignite new optional Supabase module", () => {
     await expect(newCommand.run(toolbox)).rejects.toBe(stopped)
     expect(question.type).toBe("multiselect")
     expect(question.name).toBe("modules")
-    expect(question.choices).toEqual(["supabase"])
+    expect(question.choices).toEqual(["supabase", "tanstack-query"])
     expect(question.initial).toEqual([])
   })
 
@@ -104,6 +104,11 @@ describe("ignite new optional Supabase module", () => {
       const pkg = filesystem.read(`${appPath}/package.json`, "json")
       expect(pkg.dependencies["@supabase/supabase-js"]).toBeDefined()
       expect(pkg.dependencies["react-native-url-polyfill"]).toBeDefined()
+      expect(pkg.dependencies["@tanstack/react-query"]).toBeUndefined()
+      expect(pkg.dependencies["expo-network"]).toBeUndefined()
+      expect(filesystem.exists(`${appPath}/services/query`)).toBe(false)
+      const entry = navigation === "expo-router" ? "src/app/_layout.tsx" : "app/app.tsx"
+      expect(filesystem.read(`${appPath}/${entry}`)).not.toContain("QueryProvider")
       for (const file of ["config.ts", "config.test.ts", "client.ts"]) {
         expect(filesystem.exists(`${appPath}/services/supabase/${file}`)).toBe("file")
       }
@@ -148,6 +153,11 @@ describe("ignite new optional Supabase module", () => {
     const pkg = filesystem.read(`${appPath}/package.json`, "json")
     expect(pkg.dependencies["@supabase/supabase-js"]).toBeUndefined()
     expect(pkg.dependencies["react-native-url-polyfill"]).toBeUndefined()
+    expect(pkg.dependencies["@tanstack/react-query"]).toBeUndefined()
+    expect(pkg.dependencies["expo-network"]).toBeUndefined()
+    expect(filesystem.exists(`${appPath}/services/query`)).toBe(false)
+    expect(filesystem.exists(`${appPath}/docs/query.md`)).toBe(false)
+    expect(filesystem.read(`${appPath}/src/app/_layout.tsx`)).not.toContain("QueryProvider")
     for (const file of ["modules", "services/supabase", ".env.example", "docs/supabase.md"]) {
       expect(filesystem.exists(`${appPath}/${file}`)).toBe(false)
     }

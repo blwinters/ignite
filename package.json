@@ -57,6 +57,7 @@
     "yaml": "^2.6.1"
   },
   "devDependencies": {
+    "@tanstack/react-query": "5.104.1",
     "@semantic-release/git": "^9.0.0",
     "@types/jest": "^27.0.1",
     "@types/node": "16.6.1",

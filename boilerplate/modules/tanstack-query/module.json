@@ -1,0 +1,20 @@
+{
+  "name": "tanstack-query",
+  "dependencies": {
+    "@tanstack/react-query": "5.104.1",
+    "expo-network": "~55.0.18"
+  },
+  "files": [
+    { "from": "services/query/client.ts", "to": "services/query/client.ts" },
+    { "from": "services/query/client.test.ts", "to": "services/query/client.test.ts" },
+    { "from": "services/query/nativeLifecycle.ts", "to": "services/query/nativeLifecycle.ts" },
+    {
+      "from": "services/query/nativeLifecycle.test.ts",
+      "to": "services/query/nativeLifecycle.test.ts"
+    },
+    { "from": "services/query/QueryProvider.tsx", "to": "services/query/QueryProvider.tsx" },
+    { "from": "docs/query.md", "to": "docs/query.md" }
+  ],
+  "publicEnv": [],
+  "entryProvider": { "name": "QueryProvider", "file": "services/query/QueryProvider" }
+}

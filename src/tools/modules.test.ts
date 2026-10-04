@@ -9,6 +9,9 @@ describe("optional modules", () => {
     ["", []],
     ["supabase", ["supabase"]],
     [" supabase, supabase ,", ["supabase"]],
+    ["tanstack-query,tanstack-query", ["tanstack-query"]],
+    ["supabase,tanstack-query", ["supabase", "tanstack-query"]],
+    ["tanstack-query,supabase", ["tanstack-query", "supabase"]],
   ])("normalizes selection %j", (raw, expected) => {
     expect(parseOptionalModules(raw as string | undefined)).toEqual(expected)
   })
