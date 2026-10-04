@@ -96,6 +96,20 @@ describe("ignite-cli generate", () => {
     expect(read(componentPath)).toContain("Describe your component here")
   })
 
+  it("honors EditorConfig indentation when Prettier config omits tabWidth", async () => {
+    filesystem.write(
+      `${TEMP_DIR}/.editorconfig`,
+      "root = true\n\n[*]\nindent_style = space\nindent_size = 4\n",
+    )
+    await runIgnite("generate component Topping", options)
+    const componentPath = `${TEMP_DIR}/app/components/Topping.tsx`
+    const prettier = filesystem.path(require.resolve("prettier"), "..", "bin", "prettier.cjs")
+    const checked = await spawnAndLog(`node "${prettier}" --check "${componentPath}"`, {
+      outputFileName: "generate-format-editorconfig.txt",
+    })
+    expect(checked).toEqual(expect.objectContaining({ exitCode: 0 }))
+  })
+
   describe("components", () => {
     it("should generate Topping component and patch index components export", async () => {
       const result = await runIgnite(`generate component Topping`, options)

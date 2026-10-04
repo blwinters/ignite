@@ -242,7 +242,7 @@ async function formatGeneratedFile(filepath: string) {
   })
   if (ignored || !inferredParser) return
 
-  const config = await prettier.resolveConfig(filepath)
+  const config = await prettier.resolveConfig(filepath, { editorconfig: true })
   const content = filesystem.read(filepath)
   if (content === undefined) return
   filesystem.write(filepath, await prettier.format(content, { ...config, filepath }))
