@@ -376,10 +376,10 @@ export function updateExpoRouterPackageJson(toolbox: GluegunToolbox) {
   try {
     let packageJsonRaw = filesystem.read(packageJsonPath)
 
-    // update depcruise script to use src instead of app
+    // update dependency-check script to use src instead of app
     packageJsonRaw = packageJsonRaw.replace(
-      /"depcruise": "depcruise app --config .dependency-cruiser.js"/g,
-      `"depcruise": "depcruise src --config .dependency-cruiser.js"`,
+      /"deps:check": "depcruise app --config .dependency-cruiser.js"/g,
+      `"deps:check": "depcruise src --config .dependency-cruiser.js"`,
     )
 
     // update dependency graph script to use src instead of app

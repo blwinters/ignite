@@ -56,6 +56,29 @@ console.log(JSON.stringify(process.argv.slice(1).map(version => semver.satisfies
 })
 
 describe("SDK 57 native starter compatibility", () => {
+  it.each(["newArchEnabled", "jsEngine"])("omits unsupported %s from the starter", (key) => {
+    expect(app).not.toHaveProperty(key)
+  })
+
+  it("ignores the Expo state directory itself and its descendants", () => {
+    const tempDir = tempy.directory({ prefix: "ignite-expo-ignore-" })
+    try {
+      filesystem.copy(join(root, ".gitignore"), join(tempDir, ".gitignore"))
+      filesystem.dir(join(tempDir, ".expo"))
+      execFileSync("git", ["init", "--quiet"], { cwd: tempDir })
+      for (const file of [".expo", ".expo/", ".expo/devices.json", ".expo/types/router.d.ts"]) {
+        expect(
+          execFileSync("git", ["check-ignore", "--no-index", file], {
+            cwd: tempDir,
+            encoding: "utf8",
+          }).trim(),
+        ).toBe(file)
+      }
+    } finally {
+      filesystem.remove(tempDir)
+    }
+  })
+
   it.each(["expo-router", "react-navigation"])(
     "generates a scene-enabled, SDK-aligned %s app with an iOS 16.4 floor",
     async (navigation) => {
@@ -75,7 +98,7 @@ describe("SDK 57 native starter compatibility", () => {
           "preview",
           "production",
         ]) {
-          expect(eas.build[profile]).toMatchObject({ node: "24.21.0", corepack: true })
+          expect(eas.build[profile]).toMatchObject({ node: "24.21.0", corepack: false })
         }
         expect(readFileSync(join(generated, ".nvmrc"), "utf8").trim()).toBe("24")
         expect(pkg.engines.node).toBe("^24.3.0")
@@ -94,6 +117,22 @@ describe("SDK 57 native starter compatibility", () => {
         expect(floor[1].deploymentTarget).toBe("16.4")
         expect(config.android).toBeDefined()
         expect(config.web).toBeDefined()
+        expect(config).not.toHaveProperty("newArchEnabled")
+        expect(config).not.toHaveProperty("jsEngine")
+        expect(pkg.scripts.depcruise).toBeUndefined()
+        expect(pkg.scripts["deps:check"]).toBe(
+          `depcruise ${navigation === "expo-router" ? "src" : "app"} --config .dependency-cruiser.js`,
+        )
+        execFileSync("git", ["init", "--quiet"], { cwd: generated })
+        filesystem.dir(join(generated, ".expo"))
+        for (const file of [".expo", ".expo/", ".expo/devices.json", ".expo/types/router.d.ts"]) {
+          expect(
+            execFileSync("git", ["check-ignore", "--no-index", file], {
+              cwd: generated,
+              encoding: "utf8",
+            }).trim(),
+          ).toBe(file)
+        }
         expect(pkg.dependencies).toMatchObject({
           "expo": "57.0.26",
           "expo-build-properties": "~57.0.22",

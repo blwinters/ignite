@@ -261,7 +261,7 @@ describe("ignite new", () => {
       await run(`bun run test`, runOpts)
       await run(`bun run lint`, runOpts)
       await run(`bun run compile`, runOpts)
-      await run(`bun run depcruise`, runOpts)
+      await run(`bun run deps:check`, runOpts)
       expect(await run("git diff HEAD --no-ext-diff", runOpts)).toContain("+  Bowser: undefined")
       // #endregion
 
