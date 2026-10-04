@@ -31,6 +31,20 @@
         "simulator": false
       }
     },
+    "development-ota": {
+      "node": "24.21.0",
+      "corepack": false,
+      "distribution": "internal",
+      "environment": "development",
+      "channel": "development",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": { "buildType": "apk" }
+    },
     "preview": {
       "node": "24.21.0",
       "corepack": false,

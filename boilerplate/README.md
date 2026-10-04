@@ -59,6 +59,7 @@ the EAS profiles set it explicitly.
 | --------------------- | ----------- | ----------------------------------- |
 | development-simulator | development | Development client; iOS simulator   |
 | development-device    | development | Development client; physical device |
+| development-ota       | development | Standalone development OTA          |
 | preview               | preview     | Internal distribution; Android APK  |
 | production            | production  | Release build                       |
 
@@ -69,6 +70,7 @@ iOS-specific. Build scripts include:
 ```bash
 pnpm run build:ios:sim
 pnpm run build:ios:device
+pnpm run build:ios:ota
 pnpm run build:ios:preview
 pnpm run build:ios:prod
 ```
@@ -77,13 +79,43 @@ Equivalent `build:android:*` scripts are available. These scripts use `--local`;
 use `eas build --profile <profile> --platform <ios|android>` for a hosted build.
 
 Create or select your own EAS project, then provide its project UUID as
-`EAS_PROJECT_ID` locally or in the relevant EAS environment. No account or
-project identifier is supplied by this starter. With this value set,
-`app.config.ts` adds the project link, update URL, and an app-version runtime
-policy. Linking does not enable working over-the-air updates: `expo-updates` is
-not installed by default. Add and configure that native dependency, rebuild the
-client, and verify update delivery and runtime compatibility before using OTA.
-An EAS channel or update URL alone is not proof of update support.
+`EAS_PROJECT_ID` locally or in the relevant EAS environment, or save it as
+`extra.eas.projectId` in app configuration. No account or project identifier is
+supplied by this starter. An explicit `EAS_PROJECT_ID` takes precedence over the
+saved project link; an unlinked app has updates disabled.
+
+## OTA updates
+
+The starter includes `expo-updates`, derives the linked project's update URL,
+and uses `runtimeVersion: { policy: "appVersion" }`. Development, preview, and
+production channels use matching EAS environments. Publish manually after
+review, checks, and approval for the target channel:
+
+```sh
+pnpm run update:development --message "Describe the change"
+pnpm run update:preview --message "Describe the change"
+pnpm run update:production --message "Describe the change"
+```
+
+These commands set the matching `APP_VARIANT`, target iOS and Android, and
+explicitly select the EAS environment. Build-profile variables from `eas.json`
+are not automatically available during OTA publication. Keep `APP_VARIANT` in
+each EAS environment consistent with its channel; remote environment values can
+override the command's value. Put only public client configuration in
+`EXPO_PUBLIC_*` variables; secrets must never be bundled in updates. With npm,
+forward arguments using `npm run update:preview -- --message "Describe the change"`.
+
+JavaScript and asset changes can reach compatible installed builds without a new
+install. Native dependency, plugin, SDK, or native configuration changes require
+bumping `app.json`'s version and building/installing a new binary before publishing
+updates for that version. Verify update delivery on a simulator or device.
+
+Standalone builds check for updates on launch and use a downloaded update on a
+subsequent launch; force-close and reopen twice when testing delivery. They do not
+force an in-session reload. Use `development-ota` to test development delivery
+without Metro; development clients retain their Expo update-selection workflow.
+OTA does not renew an ad hoc provisioning profile's expiration. Publication
+remains manual; no automatic publishing or custom update selector is included.
 
 ## Local validation
 

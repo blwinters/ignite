@@ -21,8 +21,12 @@ automation belong in generated apps, not this fork.
   manager.
 - Generic development, preview, and production variants derive names and bundle
   identifiers without hardcoded owners. EAS profiles distinguish simulator and
-  device development builds. `EAS_PROJECT_ID` is optional configuration; the
-  starter does not install `expo-updates` or make OTA delivery operational.
+  device development builds and standalone `development-ota` builds. The starter
+  includes SDK-compatible `expo-updates`, disables updates until its own EAS
+  project is linked through `EAS_PROJECT_ID` or saved `extra.eas.projectId`, and
+  uses an app-version runtime. Manual update commands select matching variants,
+  environments, and channels for iOS and Android; native changes require a version
+  bump and new binaries. No account identity or automatic publisher is supplied.
 - Optional modules use a descriptor contract. Interactive selection starts empty;
   `--yes` selects none. `--modules=supabase` adds only that module's dependencies,
   service/config tests, placeholder environment example, and setup/removal guide.

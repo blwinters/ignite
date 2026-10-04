@@ -408,7 +408,6 @@ describe("ignite new defaults", () => {
       }
       expect(readme).toContain("EAS_PROJECT_ID")
       expect(readme).toMatch(/expo-updates/)
-      expect(readme).toMatch(/does not enable.*over.the.air/i)
       expect(readme).toContain("[Optional modules](docs/optional-modules.md)")
       const moduleRows = catalog
         .split("\n")
@@ -497,6 +496,7 @@ describe("ignite new defaults", () => {
       const { build } = filesystem.read(`${appPath}/eas.json`, "json")
       expect(Object.keys(build).sort()).toEqual([
         "development-device",
+        "development-ota",
         "development-simulator",
         "preview",
         "production",
@@ -504,6 +504,7 @@ describe("ignite new defaults", () => {
       for (const [profile, variant] of [
         ["development-simulator", "development"],
         ["development-device", "development"],
+        ["development-ota", "development"],
         ["preview", "preview"],
         ["production", "production"],
       ]) {

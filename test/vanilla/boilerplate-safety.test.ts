@@ -126,6 +126,7 @@ describe("EAS project configuration", () => {
       })
       expect(config.extra.eas).toBeUndefined()
       expect(config.updates.url).toBeUndefined()
+      expect(config.updates.enabled).toBe(false)
       expect(config.runtimeVersion).toBeUndefined()
       expect(config.extra.ignite.version).toBe("11.5.0")
       expect(config.updates.fallbackToCacheTimeout).toBe(0)

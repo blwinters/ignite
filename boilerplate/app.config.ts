@@ -3,7 +3,7 @@ import { ExpoConfig, ConfigContext } from "@expo/config"
 /**
  * Use tsx/cjs here so we can use TypeScript for our Config Plugins
  * and not have to compile them to JavaScript.
- * 
+ *
  * See https://docs.expo.dev/config-plugins/plugins/#add-typescript-support-and-convert-to-dynamic-app-config
  */
 import "tsx/cjs"
@@ -19,7 +19,10 @@ import { getVariantConfig } from "./app/config/variants"
 module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
   const existingPlugins = config.plugins ?? []
   const variant = getVariantConfig(config.name, config.ios?.bundleIdentifier, config.android?.package)
-  const projectId = process.env.EAS_PROJECT_ID?.trim()
+  const projectId = process.env.EAS_PROJECT_ID?.trim() || config.extra?.eas?.projectId?.trim()
+  if (projectId && !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(projectId)) {
+    throw new Error("EAS project ID must be a UUID")
+  }
 
   return {
     ...config,
@@ -55,10 +58,11 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
           },
           updates: {
             ...config.updates,
+            enabled: true,
             url: `https://u.expo.dev/${projectId}`,
           },
           runtimeVersion: { policy: "appVersion" },
         }
-      : {}),
+      : { updates: { ...config.updates, enabled: false, url: undefined } }),
   }
 }
