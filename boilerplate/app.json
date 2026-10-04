@@ -11,9 +11,7 @@
   },
   "newArchEnabled": true,
   "jsEngine": "hermes",
-  "assetBundlePatterns": [
-    "**/*"
-  ],
+  "assetBundlePatterns": ["**/*"],
   "android": {
     "icon": "./assets/images/app-icon-android-legacy.png",
     "package": "com.helloworld",
@@ -54,7 +52,20 @@
         }
       }
     ],
-    "expo-build-properties"
+    [
+      "expo-build-properties",
+      {
+        "ios": {
+          "deploymentTarget": "16.0"
+        }
+      }
+    ],
+    [
+      "./plugins/withIosDeploymentFloor",
+      {
+        "deploymentTarget": "16.0"
+      }
+    ]
   ],
   "experiments": {
     "tsconfigPaths": true
