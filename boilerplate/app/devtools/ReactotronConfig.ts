@@ -25,9 +25,8 @@ reactotron.use(mmkvPlugin<ReactotronReactNative>({ storage }))
 
 if (Platform.OS !== "web") {
   reactotron.useReactNative({
-    networking: {
-      ignoreUrls: /symbolicate/,
-    },
+    // Credentials and personal content must not enter development logs.
+    networking: false,
   })
 }
 

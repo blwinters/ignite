@@ -81,7 +81,7 @@ Ignite also comes with a [component library](./docs/boilerplate/app/components/C
 
 Prerequisites:
 
-- You'll need at least a recent version of [Node](https://nodejs.org/en) to run the CLI
+- This fork requires [Node](https://nodejs.org/en) 24 (24.3.0 or newer within that major). In a fork checkout or generated project, run `nvm install` and `nvm use` to select its `.nvmrc`; see [fork setup](docs/maintaining-the-fork.md) for Corepack and pinned package managers.
 - For compiling/running in a simulator, make sure you're set up for React Native by following [the official documentation](https://reactnative.dev/docs/environment-setup).
 
 The Ignite CLI will walk you through the steps to ignite a new React Native app:
@@ -103,7 +103,7 @@ If you'd like to follow a tutorial, check out [this one from Robin Heinze](https
 The above commands may fail with various errors, depending on your operating system and dependency versions. Some troubleshooting steps to follow:
 
 - Uninstall global versions of the Ignite CLI via `npm uninstall -g ignite-cli` and use the CLI via `npx ignite-cli`
-- Make sure you are using a reasonably recent version of Node. This can be checked via the `node --version` command. If you require multiple Node versions on your system, install `nvm`, and then run `nvm install --lts`. At the time of writing, Node LTS is v20.x.x.
+- Check `node --version` against this fork's supported Node 24 range. With nvm installed, run `nvm install` and `nvm use` from the checkout or generated project; before a checkout exists, use `nvm install 24` and `nvm use 24`.
 - If the installation fails because of an Xcode error (missing Xcode command line tools), the easiest way to install them is to run `sudo xcode-select --install` in your terminal.
 - If Xcode and command line tools are already installed, but the installation complains about missing patch dependencies, you may need to switch the Xcode location to something else: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 - Opening the project in Xcode can give you other insights into what's happening: `open ./ios/<yourapp>.xcworkspace`

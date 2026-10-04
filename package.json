@@ -45,7 +45,7 @@
     "ignite-cli:prod": "wrap () { node bin/ignite \"$@\" --compiled-build | cat; }; wrap"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "^24.3.0"
   },
   "dependencies": {
     "cross-spawn": "^7.0.3",
@@ -82,7 +82,8 @@
     "tempy": "^1.0.1",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "yarn-classic": "npm:yarn@1.22.22"
   },
   "release": {
     "plugins": [

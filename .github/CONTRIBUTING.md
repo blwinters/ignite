@@ -14,13 +14,16 @@ Before submitting a pull request, you will want to make sure that your branch me
 
 ## Requirements
 
-- Node (reasonably recent version)
-- pnpm (while you can use Ignite CLI without pnpm, we require it for contributors)
+- Node 24 (24.3.0 or newer within that major; selected by `.nvmrc`)
+- pnpm 10.9.0 through Corepack (while you can use Ignite CLI without pnpm, we require it for contributors)
 
 ## Getting Started
 
 1. Fork and then clone the repo (`git clone git@github.com:<YOURGITHUBUSER>/ignite.git`)
 2. CD into the directory (`cd ignite`)
+   Select Node with `nvm install` and `nvm use`, then run `corepack enable` and
+   `corepack prepare pnpm@10.9.0 --activate`. If Corepack is missing, install it
+   with `npm install --global corepack`.
 3. Uninstall npm version (`pnpm remove ignite-cli -g`)
 4. Pull all package dependencies (`pnpm install`)
 5. Link the local binary (`pnpm link`)

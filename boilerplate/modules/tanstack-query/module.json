@@ -2,7 +2,7 @@
   "name": "tanstack-query",
   "dependencies": {
     "@tanstack/react-query": "5.104.1",
-    "expo-network": "~55.0.18"
+    "expo-network": "~57.0.2"
   },
   "files": [
     { "from": "services/query/client.ts", "to": "services/query/client.ts" },

@@ -632,7 +632,7 @@ module.exports = {
         // find "expo-localization" line and append "expo-router" line after it
         packageJsonRaw = packageJsonRaw.replace(
           /"expo-localization": ".*",/g,
-          `"expo-localization": "${packageJsonParsed.dependencies["expo-localization"]}",${EOL}    "expo-router":  "~55.0.4",`,
+          `"expo-localization": "${packageJsonParsed.dependencies["expo-localization"]}",${EOL}    "expo-router":  "~57.0.24",`,
         )
 
         // replace "main" entry point from App.js to "expo-router/entry"
@@ -666,7 +666,7 @@ module.exports = {
       // Then write it back out.
       const packageJson = JSON.parse(packageJsonRaw)
       if (packagerName === "yarn") packageJson.packageManager = `yarn@${YARN_VERSION}`
-      packageJson.scripts.check = ["lint", "typecheck", "test", "depcruise"]
+      packageJson.scripts.check = ["lint", "typecheck", "test", "deps:check"]
         .map((script) => {
           const command = packager.runCmd(script, packagerOptions)
           if (script !== "test") return command

@@ -9,11 +9,7 @@
   "updates": {
     "fallbackToCacheTimeout": 0
   },
-  "newArchEnabled": true,
-  "jsEngine": "hermes",
-  "assetBundlePatterns": [
-    "**/*"
-  ],
+  "assetBundlePatterns": ["**/*"],
   "android": {
     "icon": "./assets/images/app-icon-android-legacy.png",
     "package": "com.helloworld",
@@ -54,7 +50,21 @@
         }
       }
     ],
-    "expo-build-properties"
+    [
+      "expo-build-properties",
+      {
+        "ios": {
+          "deploymentTarget": "16.4",
+          "enableSceneSupport": true
+        }
+      }
+    ],
+    [
+      "./plugins/withIosDeploymentFloor",
+      {
+        "deploymentTarget": "16.4"
+      }
+    ]
   ],
   "experiments": {
     "tsconfigPaths": true

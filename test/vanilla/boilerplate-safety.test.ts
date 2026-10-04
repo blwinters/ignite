@@ -25,6 +25,33 @@ function loadTemplate(
   return module.exports
 }
 
+describe("Reactotron privacy default", () => {
+  it("registers native debugging without intercepting HTTP credentials or content", () => {
+    const client = {
+      configure: jest.fn(),
+      use: jest.fn(),
+      useReactNative: jest.fn(),
+      onCustomCommand: jest.fn(),
+      connect: jest.fn(),
+      clear: jest.fn(),
+      log: jest.fn(),
+    }
+    client.configure.mockReturnValue(client)
+    loadTemplate("app/devtools/ReactotronConfig.ts", {
+      "react-native": { Platform: { OS: "ios" }, NativeModules: {} },
+      "reactotron-core-client": { ArgType: { String: "string" } },
+      "reactotron-react-native-mmkv": { default: () => "storage-debugger" },
+      "@/navigators/navigationUtilities": {},
+      "@/utils/storage": { storage: {} },
+      "./ReactotronClient": { Reactotron: client },
+      "../../package.json": { name: "privacy-fixture" },
+    })
+    expect(client.useReactNative).toHaveBeenCalledWith({ networking: false })
+    expect(client.use).toHaveBeenCalledWith("storage-debugger")
+    expect(client.connect).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe("React Navigation back handler", () => {
   it.each([
     [undefined, false],
@@ -99,6 +126,7 @@ describe("EAS project configuration", () => {
       })
       expect(config.extra.eas).toBeUndefined()
       expect(config.updates.url).toBeUndefined()
+      expect(config.updates.enabled).toBe(false)
       expect(config.runtimeVersion).toBeUndefined()
       expect(config.extra.ignite.version).toBe("11.5.0")
       expect(config.updates.fallbackToCacheTimeout).toBe(0)

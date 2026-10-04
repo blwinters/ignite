@@ -28,7 +28,10 @@ describe("ignite-cli remove-demo", () => {
   const { TEMP_DIR } = setup()
 
   it("should print the expected response", async () => {
+    const demoTestPath = filesystem.path(TEMP_DIR, "app/screens/DemoScreens.test.tsx")
+    expect(filesystem.exists(demoTestPath)).toBe("file")
     const result = await runIgnite(`remove-demo ${TEMP_DIR}`)
+    expect(filesystem.exists(demoTestPath)).toBe(false)
 
     // "/user/home/ignite" replaces the temp directory, so we don't get failures when it changes every test run
     const MOCK_DIR = `/user/home/ignite`

@@ -1,5 +1,7 @@
 import { chmodSync } from "fs"
 import { filesystem, print, strings, system, GluegunToolbox } from "gluegun"
+import { execFileSync } from "node:child_process"
+import { realpathSync } from "node:fs"
 import * as tempy from "tempy"
 import { parse } from "yaml"
 
@@ -52,7 +54,7 @@ describe("fork CI", () => {
       expect(job["continue-on-error"]).toBeUndefined()
       expect(job.steps).toContainEqual({
         uses: "actions/setup-node@v4",
-        with: { "node-version": 20 },
+        with: { "node-version": 24 },
       })
       for (const step of job.steps) {
         expect(step["continue-on-error"]).toBeUndefined()
@@ -87,6 +89,13 @@ describe("ignite new defaults", () => {
       packageManager: "yarn@4.9.1",
     })
     filesystem.write(filesystem.path(tempDir, "yarn.lock"), "")
+    // Pin this synthetic fixture like a generated project before Classic's local bin is used.
+    const pin = await spawnAndLog("corepack yarn@4.9.1 set version 4.9.1 --yarn-path", {
+      pre: `cd ${tempDir}`,
+      outputFileName: "ignite-new-ci-pin-yarn.txt",
+    })
+    if (pin.exitCode !== 0) console.error(pin.output)
+    expect(pin.exitCode).toBe(0)
     const result = await spawnAndLog(`CI=true ${YARN_FIXTURE_INSTALL}`, {
       pre: `cd ${tempDir}`,
       outputFileName: "ignite-new-ci-bootstrap.txt",
@@ -180,36 +189,73 @@ describe("ignite new defaults", () => {
     expect(filesystem.exists(filesystem.path(tempDir, "UnavailableYarn"))).toBe(false)
   })
 
-  it("bootstraps pinned Yarn despite an actual Classic global executable", async () => {
-    const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`
-    const classicPath = filesystem.path(tempDir, "classic")
-    await system.run(
-      `npm install --prefix ${shellQuote(classicPath)} --ignore-scripts --no-package-lock --no-audit --no-fund yarn@1.22.22`,
-    )
-    const binPath = filesystem.path(tempDir, "bin")
-    const yarnPath = filesystem.path(binPath, "yarn")
-    filesystem.dir(binPath)
-    filesystem.write(
-      yarnPath,
-      `#!/bin/sh\nunset COREPACK_ROOT SKIP_YARN_COREPACK_CHECK\nexec node ${shellQuote(filesystem.path(classicPath, "node_modules/yarn/bin/yarn.js"))} "$@"\n`,
-    )
-    chmodSync(yarnPath, 0o755)
-    const pre = `export PATH=${shellQuote(binPath)}:"$PATH" && cd ${shellQuote(tempDir)}`
-    expect(await system.run(`${pre} && yarn --version`)).toContain("1.22.22")
+  it.each(["expo-router", "react-navigation"])(
+    "lets the real EAS Classic launcher use pinned Yarn with %s",
+    async (navigation) => {
+      const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`
+      const classicLauncher = require.resolve("yarn-classic/bin/yarn.js")
+      const binPath = filesystem.path(tempDir, "bin")
+      const yarnPath = filesystem.path(binPath, "yarn")
+      filesystem.dir(binPath)
+      filesystem.write(
+        yarnPath,
+        `#!/bin/sh\nunset COREPACK_ROOT SKIP_YARN_COREPACK_CHECK YARN_IGNORE_PATH\nexec node ${shellQuote(classicLauncher)} "$@"\n`,
+      )
+      chmodSync(yarnPath, 0o755)
+      const pre = `export PATH=${shellQuote(binPath)}:"$PATH" && cd ${shellQuote(tempDir)}`
+      expect(await system.run(`${pre} && yarn --version`)).toContain("1.22.22")
 
-    await spawnIgniteAndPrintIfFail("new ClassicYarn --yes --install-deps=false --git=false", {
-      pre,
-      outputFileName: "ignite-new-classic-yarn.txt",
-    })
-    const appPath = filesystem.path(tempDir, "ClassicYarn")
-    expect(filesystem.read(filesystem.path(appPath, "package.json"), "json").packageManager).toBe(
-      "yarn@4.9.1",
-    )
-    // Later generator commands and user commands must also bypass Classic's startup check.
-    expect(await system.run(`${pre} && cd ${shellQuote(appPath)} && yarn --version`)).toContain(
-      "4.9.1",
-    )
-  })
+      await spawnIgniteAndPrintIfFail(
+        `new ClassicYarn --yes --navigation=${navigation} --install-deps=false --git=false`,
+        {
+          pre,
+          outputFileName: `ignite-new-classic-yarn-${navigation}.txt`,
+        },
+      )
+      const appPath = filesystem.path(tempDir, "ClassicYarn")
+      expect(filesystem.read(filesystem.path(appPath, "package.json"), "json").packageManager).toBe(
+        "yarn@4.9.1",
+      )
+      // Later generator commands and user commands must also bypass Classic's startup check.
+      expect(await system.run(`${pre} && cd ${shellQuote(appPath)} && yarn --version`)).toContain(
+        "4.9.1",
+      )
+      const env = { ...process.env }
+      delete env.COREPACK_ROOT
+      delete env.SKIP_YARN_COREPACK_CHECK
+      delete env.YARN_IGNORE_PATH
+      const launch = (cwd: string, args: string[]) =>
+        execFileSync(process.execPath, [classicLauncher, ...args], {
+          cwd,
+          env,
+          encoding: "utf8",
+        }).trim()
+      expect(launch(tempDir, ["--version"])).toBe("1.22.22")
+      expect(launch(appPath, ["--version"])).toBe("4.9.1")
+      expect(launch(appPath, ["config", "get", "nodeLinker"])).toBe("node-modules")
+      // Establish real Yarn install state for the argument probe without fetching app dependencies.
+      // Keep the generated packageManager, rc discovery, and yarnPath bootstrap intact.
+      const manifestPath = filesystem.path(appPath, "package.json")
+      filesystem.write(manifestPath, {
+        ...filesystem.read(manifestPath, "json"),
+        dependencies: {},
+        devDependencies: {},
+      })
+      launch(appPath, ["install", "--no-immutable", "--mode=skip-build"])
+      expect(
+        JSON.parse(
+          launch(appPath, [
+            "node",
+            "-e",
+            "console.log(JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(1) }))",
+            "--",
+            "--delegated-argument",
+            "two words",
+          ]),
+        ),
+      ).toEqual({ cwd: realpathSync(appPath), args: ["--delegated-argument", "two words"] })
+    },
+  )
 
   it("provides Corepack setup guidance before generating a Yarn project when Corepack is absent", async () => {
     const actualWhich = system.which
@@ -295,7 +341,7 @@ describe("ignite new defaults", () => {
     expect(packageJson.scripts["lint:fix"]).toBe("eslint . --fix")
     expect(packageJson.scripts.typecheck).toBe("tsc --noEmit -p . --pretty")
     expect(packageJson.scripts.check).toBe(
-      "yarn lint && yarn typecheck && yarn test --runInBand && yarn depcruise",
+      "yarn lint && yarn typecheck && yarn test --runInBand && yarn deps:check",
     )
     expect(packageJson.dependencies["expo-router"]).toBeDefined()
     expect(packageJson.dependencies["expo-application"]).toBeUndefined()
@@ -362,7 +408,6 @@ describe("ignite new defaults", () => {
       }
       expect(readme).toContain("EAS_PROJECT_ID")
       expect(readme).toMatch(/expo-updates/)
-      expect(readme).toMatch(/does not enable.*over.the.air/i)
       expect(readme).toContain("[Optional modules](docs/optional-modules.md)")
       const moduleRows = catalog
         .split("\n")
@@ -411,7 +456,7 @@ describe("ignite new defaults", () => {
     expect(workflow.on).toHaveProperty("pull_request")
     const steps = workflow.jobs.checks.steps
     expect(steps).toContainEqual({ uses: "actions/checkout@v4" })
-    expect(steps).toContainEqual({ uses: "actions/setup-node@v4", with: { "node-version": 20 } })
+    expect(steps).toContainEqual({ uses: "actions/setup-node@v4", with: { "node-version": 24 } })
     expect(steps).toContainEqual({ name: "Install dependencies", run: install })
     expect(steps).toContainEqual({ name: "Run checks", run: check })
     for (const step of steps.filter((step) => step.uses)) {
@@ -436,7 +481,7 @@ describe("ignite new defaults", () => {
     const prefix = manager === "yarn" ? "yarn" : `${manager} run`
     const testArgs = manager === "npm" ? " -- --runInBand" : " --runInBand"
     expect(scripts.check).toBe(
-      `${prefix} lint && ${prefix} typecheck && ${prefix} test${testArgs} && ${prefix} depcruise`,
+      `${prefix} lint && ${prefix} typecheck && ${prefix} test${testArgs} && ${prefix} deps:check`,
     )
   })
 
@@ -451,6 +496,7 @@ describe("ignite new defaults", () => {
       const { build } = filesystem.read(`${appPath}/eas.json`, "json")
       expect(Object.keys(build).sort()).toEqual([
         "development-device",
+        "development-ota",
         "development-simulator",
         "preview",
         "production",
@@ -458,10 +504,13 @@ describe("ignite new defaults", () => {
       for (const [profile, variant] of [
         ["development-simulator", "development"],
         ["development-device", "development"],
+        ["development-ota", "development"],
         ["preview", "preview"],
         ["production", "production"],
       ]) {
         expect(build[profile]).toMatchObject({
+          node: "24.21.0",
+          corepack: false,
           environment: variant,
           channel: variant,
           env: { APP_VARIANT: variant },
@@ -493,7 +542,7 @@ describe("ignite new defaults", () => {
 
       await system.run(`cd ${appPath} && ${YARN_FIXTURE_INSTALL}`)
       const typecheck = await spawnAndLog(
-        "yarn tsc --noEmit --strict --skipLibCheck --module commonjs --target es2022 app.config.ts",
+        "yarn tsc --ignoreConfig --noEmit --strict --skipLibCheck --types node --module commonjs --target es2022 app.config.ts",
         {
           pre: `cd ${appPath}`,
           outputFileName: `ignite-new-variants-typecheck-${navigation}.txt`,

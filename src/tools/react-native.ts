@@ -376,10 +376,10 @@ export function updateExpoRouterPackageJson(toolbox: GluegunToolbox) {
   try {
     let packageJsonRaw = filesystem.read(packageJsonPath)
 
-    // update depcruise script to use src instead of app
+    // update dependency-check script to use src instead of app
     packageJsonRaw = packageJsonRaw.replace(
-      /"depcruise": "depcruise app --config .dependency-cruiser.js"/g,
-      `"depcruise": "depcruise src --config .dependency-cruiser.js"`,
+      /"deps:check": "depcruise app --config .dependency-cruiser.js"/g,
+      `"deps:check": "depcruise src --config .dependency-cruiser.js"`,
     )
 
     // update dependency graph script to use src instead of app
@@ -407,6 +407,21 @@ export function cleanupExpoRouterConversion(toolbox: GluegunToolbox, targetPath:
   workingDir.remove(workingDir.path("ignite", "templates", "navigator"))
   workingDir.remove(workingDir.path("src", "navigators"))
   workingDir.remove("app")
+
+  // SDK 56+ Router owns these navigation APIs; the React Navigation starter
+  // keeps its original imports because only the Router conversion runs here.
+  for (const file of [
+    "src/theme/context.tsx",
+    "src/components/Screen.tsx",
+    "src/utils/useHeader.tsx",
+    "src/components/Text.test.tsx",
+  ]) {
+    const contents = workingDir.read(file)
+    workingDir.write(
+      file,
+      contents.replace(/@react-navigation\/native/g, "expo-router/react-navigation"),
+    )
+  }
 }
 
 export function updatePackagerCommandsInReadme(readmePath: string, packagerName: PackagerName) {

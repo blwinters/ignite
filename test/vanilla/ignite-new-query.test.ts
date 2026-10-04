@@ -30,7 +30,7 @@ describe("ignite new optional Query module", () => {
     const appPath = `${tempDir}/QueryApp`
     const pkg = filesystem.read(`${appPath}/package.json`, "json")
     expect(pkg.dependencies["@tanstack/react-query"]).toBe("5.104.1")
-    expect(pkg.dependencies["expo-network"]).toBe("~55.0.18")
+    expect(pkg.dependencies["expo-network"]).toBe("~57.0.2")
     for (const file of [
       "services/query/client.ts",
       "services/query/client.test.ts",
