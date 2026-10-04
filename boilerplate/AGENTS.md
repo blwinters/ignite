@@ -36,6 +36,10 @@ Do not edit dependency folders or built output to fix application behavior.
 
 ## Environment safety
 
+Reactotron HTTP inspection is disabled by default (`networking: false`). Keep it
+disabled for authenticated requests and personal content; other debugging remains
+available. Do not opt in automatically when adding an API integration.
+
 Keep local `.env` values and credentials out of version control and logs. Commit
 only example environment files with placeholders. `EXPO_PUBLIC_*` values are
 bundled into the client and must never contain secrets. Keep privileged service
